@@ -20,8 +20,18 @@ services:
     image: livekit/livekit-server:v1.13
     restart: unless-stopped
     network_mode: host
-    command: --config /etc/livekit.yaml
+    # Descobre o IP público da casa por HTTPS ao iniciar (o STUN padrão do LiveKit
+    # pode falhar). Para fixar um IP, defina NODE_IP no .env.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        NODE_IP="$${NODE_IP:-$$(wget -qO- -T 10 https://api.ipify.org || wget -qO- -T 10 https://ifconfig.me/ip)}"
+        if [ -z "$$NODE_IP" ]; then echo "Não consegui descobrir o IP público"; sleep 10; exit 1; fi
+        echo "IP público: $$NODE_IP"
+        export NODE_IP
+        exec /livekit-server --config /etc/livekit.yaml
     environment:
+      NODE_IP: ${NODE_IP:-}
       LIVEKIT_KEYS: "${LIVEKIT_API_KEY:?defina LIVEKIT_API_KEY no .env}: ${LIVEKIT_API_SECRET:?defina LIVEKIT_API_SECRET no .env}"
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml:ro

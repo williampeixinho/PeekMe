@@ -5,8 +5,8 @@ rtc:
   # Vídeo via UDP (o normal) e TCP (para redes que bloqueiam UDP).
   udp_port: 7882
   tcp_port: 7881
-  # Descobre o IP público da sua casa automaticamente.
-  use_external_ip: true
+  # O IP público é passado pela variável NODE_IP (veja docker-compose.yml).
+  use_external_ip: false
 room:
   # 1 transmissor + 5 espectadores
   max_participants: 6
