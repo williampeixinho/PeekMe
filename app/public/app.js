@@ -103,6 +103,20 @@ async function startStream(force = false) {
       : 'Não foi possível iniciar a transmissão. Veja se o navegador permite compartilhar a tela.';
     return;
   }
+
+  // O navegador não mandou o som junto com a tela (ex.: Firefox): usa uma entrada
+  // de áudio. No Linux, escolha "Monitor of …" para enviar o som do computador.
+  if ($('audio').checked && !room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio)) {
+    try {
+      await room.localParticipant.setMicrophoneEnabled(
+        true,
+        { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 },
+        { audioPreset: AudioPresets.musicHighQualityStereo, dtx: false, red: true, forceStereo: true },
+      );
+    } catch (err) {
+      console.error('Sem entrada de áudio:', err);
+    }
+  }
   btn.disabled = false;
 
   const pub = room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
@@ -110,7 +124,7 @@ async function startStream(force = false) {
   // O usuário clicou em "Parar de compartilhar" na barra do navegador.
   pub.track.on('ended', () => stopStream());
   // Avisa quando o navegador não entregou o áudio (janela, Firefox ou caixa desmarcada).
-  $('host-audio').hidden = !!room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio);
+  $('host-audio').hidden = hasAudio(room.localParticipant);
 
   const link = `${location.origin}/assistir/${session.room}`;
   $('share-link').value = link;
@@ -232,12 +246,14 @@ async function watch(code) {
   document.title = 'Assistindo · PeekMe';
 }
 
+function hasAudio(participant) {
+  return !!(participant.getTrackPublication(Track.Source.ScreenShareAudio) || participant.getTrackPublication(Track.Source.Microphone));
+}
+
 // Se em alguns segundos não chegar áudio, avisa que a transmissão está sem som.
 function checkAudio(room) {
   setTimeout(() => {
-    const hasAudio = [...room.remoteParticipants.values()]
-      .some(p => p.getTrackPublication(Track.Source.ScreenShareAudio));
-    $('no-audio').hidden = hasAudio;
+    $('no-audio').hidden = [...room.remoteParticipants.values()].some(hasAudio);
   }, 3000);
 }
 
@@ -287,7 +303,7 @@ if (match) {
     $('start-form').querySelector('button').disabled = true;
   }
   if (/firefox/i.test(navigator.userAgent)) {
-    $('start-error').textContent = 'O Firefox não transmite áudio. Para ter som, transmita pelo Chrome ou pelo Edge.';
+    $('start-error').textContent = 'No Firefox, o som vai por uma entrada de áudio: quando ele pedir o microfone, escolha "Monitor of …" (Linux) para enviar o som do computador.';
   }
   try { const saved = localStorage.getItem('peekme-quality'); if (QUALITIES[saved]) $('quality-select').value = saved; } catch {}
   show('home');
