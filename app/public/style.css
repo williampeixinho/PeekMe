@@ -33,7 +33,7 @@ body {
 form { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
 label { font-size: 13px; color: var(--muted); }
 label.check { display: flex; align-items: center; gap: 8px; color: var(--text); margin: 4px 0 8px; }
-input:not([type]), input[type=password], input[readonly] {
+input:not([type]), input[type=password], input[readonly], select {
   background: var(--bg); color: var(--text); border: 1px solid var(--surface-2);
   border-radius: 8px; padding: 10px 12px; font: inherit; width: 100%;
 }

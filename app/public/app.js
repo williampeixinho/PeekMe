@@ -30,10 +30,22 @@ function ended(title, text) {
 
 // ---------- Transmitir ----------
 
-// Qualidade: 720p a 60 fps. Com 5 espectadores a ~3 Mbps cada, a Pi envia ~15 Mbps.
-// A camada de 360p serve quem tem internet fraca.
+// Qualidades que quem transmite pode escolher. O upload da Pi é o limite:
+// com 5 espectadores, 720p usa ~15 Mbps e 1080p ~25 Mbps.
+// As camadas menores servem quem tem internet fraca.
+const QUALITIES = {
+  '720': {
+    resolution: { width: 1280, height: 720, frameRate: 60 },
+    encoding: { maxBitrate: 3_000_000, maxFramerate: 60 },
+    layers: [new VideoPreset(640, 360, 600_000, 30)],
+  },
+  '1080': {
+    resolution: { width: 1920, height: 1080, frameRate: 60 },
+    encoding: { maxBitrate: 5_000_000, maxFramerate: 60 },
+    layers: [new VideoPreset(640, 360, 600_000, 30), new VideoPreset(1280, 720, 2_500_000, 60)],
+  },
+};
 const SCREEN_CAPTURE = {
-  resolution: { width: 1280, height: 720, frameRate: 60 },
   contentHint: 'motion',
   selfBrowserSurface: 'exclude',
   surfaceSwitching: 'include',
@@ -42,8 +54,6 @@ const SCREEN_CAPTURE = {
 const SCREEN_PUBLISH = {
   videoCodec: 'vp8',
   simulcast: true,
-  screenShareEncoding: { maxBitrate: 3_000_000, maxFramerate: 60 },
-  screenShareSimulcastLayers: [new VideoPreset(640, 360, 600_000, 30)],
   degradationPreference: 'maintain-framerate',
   audioPreset: AudioPresets.musicHighQualityStereo,
   dtx: false,
@@ -72,7 +82,13 @@ async function startStream(force = false) {
   try {
     await room.connect(livekitUrl(session.url), session.token);
     const audio = $('audio').checked && { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
-    await room.localParticipant.setScreenShareEnabled(true, { ...SCREEN_CAPTURE, audio }, SCREEN_PUBLISH);
+    const q = QUALITIES[$('quality-select').value] || QUALITIES['720'];
+    try { localStorage.setItem('peekme-quality', $('quality-select').value); } catch {}
+    await room.localParticipant.setScreenShareEnabled(
+      true,
+      { ...SCREEN_CAPTURE, resolution: q.resolution, audio },
+      { ...SCREEN_PUBLISH, screenShareEncoding: q.encoding, screenShareSimulcastLayers: q.layers },
+    );
   } catch (err) {
     console.error(err);
     await stopStream(true);
@@ -239,5 +255,6 @@ if (match) {
     $('start-error').textContent = 'Este navegador não consegue compartilhar a tela. Use Chrome, Edge ou Firefox no computador.';
     $('start-form').querySelector('button').disabled = true;
   }
+  try { const saved = localStorage.getItem('peekme-quality'); if (QUALITIES[saved]) $('quality-select').value = saved; } catch {}
   show('home');
 }

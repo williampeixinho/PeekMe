@@ -21,6 +21,11 @@
       <form id="start-form">
         <label for="password">Senha de transmissão</label>
         <input id="password" type="password" autocomplete="current-password" required>
+        <label for="quality-select">Qualidade</label>
+        <select id="quality-select">
+          <option value="720" selected>720p · 60 fps (mais leve)</option>
+          <option value="1080">1080p · 60 fps (mais nítido, usa mais internet)</option>
+        </select>
         <label class="check"><input id="audio" type="checkbox" checked> Compartilhar o áudio também</label>
         <button class="primary" type="submit">Transmitir</button>
         <p id="start-error" class="error" role="alert"></p>
