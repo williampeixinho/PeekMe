@@ -170,7 +170,8 @@ async function watch(req, res) {
 function serveFile(res, file) {
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404).end('Não encontrado'); return; }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
+    // no-cache: o navegador (e o Cloudflare) sempre confere se há versão nova.
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
     res.end(data);
   });
 }
