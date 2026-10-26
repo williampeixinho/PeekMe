@@ -4,7 +4,7 @@ Compartilhamento de tela simples, no estilo do "Go Live" do Discord, sem chat ne
 
 - Transmitir: abra o site, digite a senha de transmissão, escolha a tela, janela ou aba.
 - Assistir: abra o link `https://seu-dominio/assistir/xxxxxxxx`, digite um nome (opcional) e clique em Assistir.
-- Qualidade: 720p a até 60 fps, cerca de 3 Mbps por espectador. Quem tem internet fraca recebe automaticamente uma versão em 360p.
+- Qualidade: 720p ou 1080p a 60 fps, escolhida ao transmitir (cerca de 3 ou 5 Mbps por espectador). Quem tem internet fraca recebe automaticamente uma versão menor.
 - Só uma transmissão por vez. Se já houver uma no ar, o site pergunta se você quer encerrá-la.
 
 Tudo roda em Docker na Raspberry Pi:
@@ -61,6 +61,20 @@ docker compose up -d --build
 Espere um minuto (o Caddy pega o certificado HTTPS na primeira vez) e abra `https://seu-subdominio.duckdns.org`.
 
 Para ver se está tudo rodando: `docker compose ps`. Para ver os registros: `docker compose logs -f`.
+
+## Sem porta aberta: Cloudflare Tunnel e TURN (ex.: Starlink)
+
+Se a sua internet usa CGNAT (como a Starlink) e não dá para redirecionar portas:
+
+- **Site:** use um Cloudflare Tunnel apontando o seu domínio para `http://IP-DA-PI:3077`. O próprio site repassa `/rtc` para o LiveKit, então não precisa do Caddy.
+- **Vídeo:** quem tem IPv6 ou está na sua rede conecta direto. Para quem só tem IPv4, crie uma chave em **Cloudflare → Realtime → TURN Server → Create TURN key** e coloque no `.env`:
+
+  ```
+  CF_TURN_KEY_ID=<Turn Token ID>
+  CF_TURN_API_TOKEN=<API Token>
+  ```
+
+  Depois rode `docker compose up -d app`. O plano gratuito do TURN do Cloudflare inclui 1.000 GB por mês.
 
 ## Uso
 
