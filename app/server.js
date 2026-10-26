@@ -2,6 +2,7 @@
 // O vídeo não passa por aqui: vai do navegador de quem transmite para o LiveKit,
 // e do LiveKit para quem assiste.
 const http = require('http');
+const net = require('net');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -145,8 +146,23 @@ function serveFile(res, file) {
 
 const routes = { '/api/start': start, '/api/stop': stop, '/api/watch': watch };
 
-http.createServer(async (req, res) => {
+// /rtc é a sinalização do LiveKit. O site repassa essas conexões para ele, assim
+// tudo funciona por uma porta só (útil atrás de Cloudflare Tunnel ou outro proxy).
+const LK = new URL(LIVEKIT_HTTP);
+const isRtc = pathname => pathname === '/rtc' || pathname.startsWith('/rtc/');
+
+function proxyRtc(req, res) {
+  const upstream = http.request({ host: LK.hostname, port: LK.port, method: req.method, path: req.url, headers: req.headers }, up => {
+    res.writeHead(up.statusCode, up.headers);
+    up.pipe(res);
+  });
+  upstream.on('error', () => json(res, 502, { error: 'Servidor de vídeo indisponível.' }));
+  req.pipe(upstream);
+}
+
+const server = http.createServer(async (req, res) => {
   const { pathname } = new URL(req.url, 'http://x');
+  if (isRtc(pathname)) return proxyRtc(req, res);
   try {
     if (routes[pathname]) {
       if (req.method !== 'POST') return json(res, 405, { error: 'Use POST.' });
@@ -162,4 +178,19 @@ http.createServer(async (req, res) => {
     console.error(err);
     json(res, 500, { error: 'Erro no servidor. Tente de novo.' });
   }
-}).listen(PORT, () => console.log(`PeekMe rodando na porta ${PORT}`));
+});
+
+server.on('upgrade', (req, socket, head) => {
+  if (!isRtc(new URL(req.url, 'http://x').pathname)) { socket.destroy(); return; }
+  const upstream = net.connect(Number(LK.port), LK.hostname, () => {
+    const headers = Object.entries(req.headers).map(([k, v]) => `${k}: ${v}`).join('\r\n');
+    upstream.write(`${req.method} ${req.url} HTTP/1.1\r\n${headers}\r\n\r\n`);
+    if (head.length) upstream.write(head);
+    upstream.pipe(socket);
+    socket.pipe(upstream);
+  });
+  upstream.on('error', () => socket.destroy());
+  socket.on('error', () => upstream.destroy());
+});
+
+server.listen(PORT, () => console.log(`PeekMe rodando na porta ${PORT}`));
