@@ -232,7 +232,10 @@ if (match) {
   $('join-form').addEventListener('submit', e => { e.preventDefault(); watch(code); });
   show('join');
 } else {
-  if (!navigator.mediaDevices?.getDisplayMedia) {
+  if (!window.isSecureContext) {
+    $('start-error').textContent = 'Para compartilhar a tela, abra o PeekMe pelo endereço com https:// (o seu domínio).';
+    $('start-form').querySelector('button').disabled = true;
+  } else if (!navigator.mediaDevices?.getDisplayMedia) {
     $('start-error').textContent = 'Este navegador não consegue compartilhar a tela. Use Chrome, Edge ou Firefox no computador.';
     $('start-form').querySelector('button').disabled = true;
   }
