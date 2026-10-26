@@ -7,6 +7,8 @@ rtc:
   tcp_port: 7881
   # O IP público é passado pela variável NODE_IP (veja docker-compose.yml).
   use_external_ip: false
+  # Anuncia também o IP da rede local, para quem está em casa conectar direto.
+  advertise_internal_ip: true
 room:
   # 1 transmissor + 5 espectadores
   max_participants: 6
