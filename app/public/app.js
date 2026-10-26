@@ -14,6 +14,11 @@ function livekitUrl(url) {
   return `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
 }
 
+// Servidores TURN extras (Cloudflare), quando o servidor fornece.
+function connectOptions(session) {
+  return session.iceServers?.length ? { rtcConfig: { iceServers: session.iceServers } } : {};
+}
+
 async function api(path, body) {
   const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
@@ -80,7 +85,7 @@ async function startStream(force = false) {
   const room = new Room({ adaptiveStream: false, dynacast: true });
   host = { room, code: session.room, hostSecret: session.hostSecret };
   try {
-    await room.connect(livekitUrl(session.url), session.token);
+    await room.connect(livekitUrl(session.url), session.token, connectOptions(session));
     const audio = $('audio').checked && { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
     const q = QUALITIES[$('quality-select').value] || QUALITIES['720'];
     try { localStorage.setItem('peekme-quality', $('quality-select').value); } catch {}
@@ -207,7 +212,7 @@ async function watch(code) {
 
   show('watch');
   try {
-    await room.connect(livekitUrl(session.url), session.token);
+    await room.connect(livekitUrl(session.url), session.token, connectOptions(session));
     // O clique em "Assistir" libera o som no navegador.
     await room.startAudio();
   } catch (err) {

@@ -64,6 +64,37 @@ async function isLive(room) {
   }
 }
 
+// TURN do Cloudflare (opcional): necessário quando a internet da casa usa CGNAT
+// no IPv4 (ex.: Starlink). Quem consegue conexão direta continua direto.
+const CF_TURN_KEY_ID = process.env.CF_TURN_KEY_ID;
+const CF_TURN_API_TOKEN = process.env.CF_TURN_API_TOKEN;
+let turnCache = null; // { iceServers, expires }
+
+async function iceServers() {
+  if (!CF_TURN_KEY_ID || !CF_TURN_API_TOKEN) return undefined;
+  if (turnCache && Date.now() < turnCache.expires) return turnCache.iceServers;
+  try {
+    const res = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${CF_TURN_KEY_ID}/credentials/generate-ice-servers`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${CF_TURN_API_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ttl: 86400 }),
+    });
+    if (!res.ok) throw new Error(`Cloudflare respondeu ${res.status}`);
+    const data = await res.json();
+    // O Cloudflare recomenda tirar a porta 53 nos navegadores (costuma ser bloqueada).
+    const servers = [].concat(data.iceServers || []).map(srv => ({
+      ...srv,
+      urls: [].concat(srv.urls).filter(u => !/:53(\?|$)/.test(u)),
+    })).filter(srv => srv.urls.length);
+    // As credenciais valem 24 h; renova a cada 12 h.
+    turnCache = { iceServers: servers, expires: Date.now() + 12 * 3600_000 };
+    return servers;
+  } catch (err) {
+    console.error('Não foi possível obter o TURN do Cloudflare:', err.message);
+    return undefined;
+  }
+}
+
 async function token(room, identity, name, grant) {
   const at = new AccessToken(API_KEY, API_SECRET, { identity, name, ttl: '12h' });
   at.addGrant({ room, roomJoin: true, ...grant });
@@ -108,7 +139,7 @@ async function start(req, res) {
   await rooms.createRoom({ name: room, maxParticipants: MAX_VIEWERS + 1, emptyTimeout: 60, departureTimeout: 20 });
   current = { room, hostSecret: crypto.randomBytes(16).toString('hex') };
   const jwt = await token(room, HOST_ID, 'Transmissor', { canPublish: true, canSubscribe: false, canPublishData: false });
-  json(res, 200, { room, token: jwt, url: LIVEKIT_PUBLIC_URL, hostSecret: current.hostSecret, maxViewers: MAX_VIEWERS });
+  json(res, 200, { room, token: jwt, url: LIVEKIT_PUBLIC_URL, iceServers: await iceServers(), hostSecret: current.hostSecret, maxViewers: MAX_VIEWERS });
 }
 
 // POST /api/stop { room, hostSecret }
@@ -133,7 +164,7 @@ async function watch(req, res) {
   }
   const name = String(body.name || '').trim().slice(0, 24) || 'Alguém';
   const jwt = await token(room, `v-${crypto.randomBytes(6).toString('hex')}`, name, { canPublish: false, canSubscribe: true, canPublishData: false });
-  json(res, 200, { token: jwt, url: LIVEKIT_PUBLIC_URL });
+  json(res, 200, { token: jwt, url: LIVEKIT_PUBLIC_URL, iceServers: await iceServers() });
 }
 
 function serveFile(res, file) {
