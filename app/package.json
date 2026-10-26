@@ -1,0 +1,13 @@
+{
+  "name": "peekme",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Compartilhamento de tela simples, estilo 'Go Live' do Discord.",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "livekit-client": "^2.15.0",
+    "livekit-server-sdk": "^2.13.0"
+  }
+}

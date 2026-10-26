@@ -1,0 +1,23 @@
+# Caddy: HTTPS automático (Let's Encrypt) para o seu domínio.
+{
+	# A porta 80 da Pi já é usada pelo nginx, então o Caddy fica só na 443.
+	# O certificado é emitido pela própria 443 (desafio TLS-ALPN).
+	http_port {$CADDY_HTTP_PORT:8780}
+	auto_https disable_redirects
+}
+
+{$DOMAIN} {
+	tls {
+		issuer acme {
+			disable_http_challenge
+		}
+	}
+	encode gzip
+
+	# Conexões do LiveKit (sinalização do vídeo)
+	@livekit path /rtc /rtc/*
+	reverse_proxy @livekit 127.0.0.1:7880
+
+	# Site do PeekMe
+	reverse_proxy 127.0.0.1:{$APP_PORT:3077}
+}

@@ -1,0 +1,165 @@
+// PeekMe: site + emissor de tokens do LiveKit.
+// O vídeo não passa por aqui: vai do navegador de quem transmite para o LiveKit,
+// e do LiveKit para quem assiste.
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const { AccessToken, RoomServiceClient } = require('livekit-server-sdk');
+
+const PORT = Number(process.env.PORT || 3077);
+const API_KEY = process.env.LIVEKIT_API_KEY;
+const API_SECRET = process.env.LIVEKIT_API_SECRET;
+const HOST_PASSWORD = process.env.HOST_PASSWORD;
+// Endereço interno do LiveKit (para criar/encerrar salas).
+const LIVEKIT_HTTP = process.env.LIVEKIT_HTTP_URL || 'http://127.0.0.1:7880';
+// Endereço que o navegador usa. Vazio = mesmo domínio do site (o Caddy encaminha /rtc).
+const LIVEKIT_PUBLIC_URL = process.env.LIVEKIT_PUBLIC_URL || '';
+const MAX_VIEWERS = Number(process.env.MAX_VIEWERS || 5);
+
+for (const [name, value] of Object.entries({ LIVEKIT_API_KEY: API_KEY, LIVEKIT_API_SECRET: API_SECRET, HOST_PASSWORD })) {
+  if (!value) { console.error(`Falta a variável ${name} (veja o arquivo .env)`); process.exit(1); }
+}
+
+const rooms = new RoomServiceClient(LIVEKIT_HTTP, API_KEY, API_SECRET);
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const LK_CLIENT = require.resolve('livekit-client'); // dist/livekit-client.umd.js
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
+const ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
+const HOST_ID = 'host';
+
+// Só existe uma transmissão por vez.
+let current = null; // { room, hostSecret }
+
+// Limite simples de tentativas de senha por IP.
+const failures = new Map(); // ip -> { count, until }
+function blocked(ip) {
+  const f = failures.get(ip);
+  return f && f.count >= 5 && Date.now() < f.until;
+}
+function fail(ip) {
+  const f = failures.get(ip);
+  if (!f || Date.now() > f.until) failures.set(ip, { count: 1, until: Date.now() + 60_000 });
+  else f.count++;
+}
+
+function checkPassword(given) {
+  const a = crypto.createHash('sha256').update(String(given || '')).digest();
+  const b = crypto.createHash('sha256').update(HOST_PASSWORD).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+function newCode() {
+  return Array.from(crypto.randomBytes(8), b => ALPHABET[b % ALPHABET.length]).join('');
+}
+
+// A transmissão atual ainda está no ar? (a sala existe e o transmissor está nela)
+async function isLive(room) {
+  try {
+    const list = await rooms.listParticipants(room);
+    return list.some(p => p.identity === HOST_ID);
+  } catch {
+    return false;
+  }
+}
+
+async function token(room, identity, name, grant) {
+  const at = new AccessToken(API_KEY, API_SECRET, { identity, name, ttl: '12h' });
+  at.addGrant({ room, roomJoin: true, ...grant });
+  return at.toJwt();
+}
+
+function json(res, status, body) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(JSON.stringify(body));
+}
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', chunk => {
+      data += chunk;
+      if (data.length > 10_000) { reject(new Error('corpo grande demais')); req.destroy(); }
+    });
+    req.on('end', () => { try { resolve(data ? JSON.parse(data) : {}); } catch (e) { reject(e); } });
+    req.on('error', reject);
+  });
+}
+
+function clientIp(req) {
+  return (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress;
+}
+
+// POST /api/start { password, force } -> { room, token, url }
+async function start(req, res) {
+  const ip = clientIp(req);
+  if (blocked(ip)) return json(res, 429, { error: 'Muitas tentativas. Espere um minuto.' });
+  const body = await readBody(req);
+  if (!checkPassword(body.password)) { fail(ip); return json(res, 401, { error: 'Senha incorreta.' }); }
+  failures.delete(ip);
+
+  if (current && await isLive(current.room)) {
+    if (!body.force) return json(res, 409, { error: 'Já existe uma transmissão no ar.' });
+    await rooms.deleteRoom(current.room).catch(() => {});
+  }
+
+  const room = newCode();
+  await rooms.createRoom({ name: room, maxParticipants: MAX_VIEWERS + 1, emptyTimeout: 60, departureTimeout: 20 });
+  current = { room, hostSecret: crypto.randomBytes(16).toString('hex') };
+  const jwt = await token(room, HOST_ID, 'Transmissor', { canPublish: true, canSubscribe: false, canPublishData: false });
+  json(res, 200, { room, token: jwt, url: LIVEKIT_PUBLIC_URL, hostSecret: current.hostSecret, maxViewers: MAX_VIEWERS });
+}
+
+// POST /api/stop { room, hostSecret }
+async function stop(req, res) {
+  const body = await readBody(req);
+  if (!current || body.room !== current.room || body.hostSecret !== current.hostSecret) return json(res, 403, { error: 'Não autorizado.' });
+  await rooms.deleteRoom(current.room).catch(() => {});
+  current = null;
+  json(res, 200, { ok: true });
+}
+
+// POST /api/watch { room, name } -> { token, url }
+async function watch(req, res) {
+  const body = await readBody(req);
+  const room = String(body.room || '').toLowerCase();
+  if (!current || room !== current.room || !await isLive(room)) {
+    return json(res, 404, { error: 'Essa transmissão não está no ar.' });
+  }
+  const list = await rooms.listParticipants(room);
+  if (list.filter(p => p.identity !== HOST_ID).length >= MAX_VIEWERS) {
+    return json(res, 403, { error: `A sala está cheia (máximo de ${MAX_VIEWERS} pessoas assistindo).` });
+  }
+  const name = String(body.name || '').trim().slice(0, 24) || 'Alguém';
+  const jwt = await token(room, `v-${crypto.randomBytes(6).toString('hex')}`, name, { canPublish: false, canSubscribe: true, canPublishData: false });
+  json(res, 200, { token: jwt, url: LIVEKIT_PUBLIC_URL });
+}
+
+function serveFile(res, file) {
+  fs.readFile(file, (err, data) => {
+    if (err) { res.writeHead(404).end('Não encontrado'); return; }
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
+    res.end(data);
+  });
+}
+
+const routes = { '/api/start': start, '/api/stop': stop, '/api/watch': watch };
+
+http.createServer(async (req, res) => {
+  const { pathname } = new URL(req.url, 'http://x');
+  try {
+    if (routes[pathname]) {
+      if (req.method !== 'POST') return json(res, 405, { error: 'Use POST.' });
+      return await routes[pathname](req, res);
+    }
+    if (pathname === '/healthz') return json(res, 200, { ok: true });
+    if (pathname === '/vendor/livekit-client.js') return serveFile(res, LK_CLIENT);
+    // /assistir/<codigo> e qualquer outra rota abrem o app
+    const file = path.normalize(path.join(PUBLIC_DIR, pathname));
+    if (file.startsWith(PUBLIC_DIR + path.sep) && fs.existsSync(file) && fs.statSync(file).isFile()) return serveFile(res, file);
+    serveFile(res, path.join(PUBLIC_DIR, 'index.html'));
+  } catch (err) {
+    console.error(err);
+    json(res, 500, { error: 'Erro no servidor. Tente de novo.' });
+  }
+}).listen(PORT, () => console.log(`PeekMe rodando na porta ${PORT}`));
