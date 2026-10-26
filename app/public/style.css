@@ -78,3 +78,6 @@ video { width: 100%; height: 100%; object-fit: contain; display: block; }
   .stage.watch { grid-template-rows: minmax(0, 1fr); }
   .watch .video-wrap .controls { opacity: 1; }
 }
+
+.warn { color: #ffcf70; margin: 0; }
+.unmute { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); z-index: 2; box-shadow: 0 4px 16px rgba(0,0,0,.4); }

@@ -45,6 +45,7 @@
       </div>
       <p class="muted"><strong id="viewer-count">0</strong> de <span id="viewer-max">5</span> assistindo</p>
       <ul id="viewer-list" class="viewers"></ul>
+      <p id="host-audio" class="warn small" hidden>Sem áudio. Para transmitir o som, pare e escolha uma aba ou a tela inteira marcando "Compartilhar áudio" (o Firefox não envia áudio).</p>
       <p id="host-status" class="muted small"></p>
       <button id="stop" class="danger" type="button">Parar transmissão</button>
     </aside>
@@ -68,10 +69,12 @@
     <div class="video-wrap" id="watch-wrap">
       <video id="screen" autoplay playsinline></video>
       <div id="waiting" class="overlay">Conectando…</div>
+      <button id="unmute" class="unmute primary" type="button" hidden>🔊 Clique para ativar o som</button>
       <div class="controls">
         <button id="mute" type="button" title="Som">🔊</button>
         <input id="volume" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume">
         <span class="spacer"></span>
+        <span id="no-audio" class="small" hidden>Transmissão sem áudio</span>
         <span id="quality" class="small"></span>
         <button id="fullscreen" type="button" title="Tela cheia">⛶</button>
       </div>

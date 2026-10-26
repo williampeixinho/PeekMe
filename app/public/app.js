@@ -109,6 +109,8 @@ async function startStream(force = false) {
   $('preview').srcObject = new MediaStream([pub.track.mediaStreamTrack]);
   // O usuário clicou em "Parar de compartilhar" na barra do navegador.
   pub.track.on('ended', () => stopStream());
+  // Avisa quando o navegador não entregou o áudio (janela, Firefox ou caixa desmarcada).
+  $('host-audio').hidden = !!room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio);
 
   const link = `${location.origin}/assistir/${session.room}`;
   $('share-link').value = link;
@@ -190,11 +192,16 @@ async function watch(code) {
       if (track.kind === Track.Kind.Video) {
         track.attach(screenEl);
         $('waiting').hidden = true;
+        checkAudio(room);
       } else if (track.kind === Track.Kind.Audio) {
         track.attach(audioEl);
         applyVolume();
+        $('no-audio').hidden = true;
+        // Alguns navegadores bloqueiam o som até um novo clique.
+        audioEl.play().catch(() => { $('unmute').hidden = false; });
       }
     })
+    .on(RoomEvent.AudioPlaybackStatusChanged, () => { $('unmute').hidden = room.canPlaybackAudio; })
     .on(RoomEvent.TrackUnsubscribed, track => {
       track.detach();
       if (track.kind === Track.Kind.Video) { $('waiting').textContent = 'Aguardando a tela…'; $('waiting').hidden = false; }
@@ -224,6 +231,25 @@ async function watch(code) {
   btn.disabled = false;
   document.title = 'Assistindo · PeekMe';
 }
+
+// Se em alguns segundos não chegar áudio, avisa que a transmissão está sem som.
+function checkAudio(room) {
+  setTimeout(() => {
+    const hasAudio = [...room.remoteParticipants.values()]
+      .some(p => p.getTrackPublication(Track.Source.ScreenShareAudio));
+    $('no-audio').hidden = hasAudio;
+  }, 3000);
+}
+
+$('unmute').addEventListener('click', async () => {
+  try {
+    await viewer?.startAudio();
+    await audioEl.play();
+    $('unmute').hidden = true;
+  } catch (err) {
+    console.error(err);
+  }
+});
 
 function applyVolume() {
   audioEl.volume = Number($('volume').value);
@@ -259,6 +285,9 @@ if (match) {
   } else if (!navigator.mediaDevices?.getDisplayMedia) {
     $('start-error').textContent = 'Este navegador não consegue compartilhar a tela. Use Chrome, Edge ou Firefox no computador.';
     $('start-form').querySelector('button').disabled = true;
+  }
+  if (/firefox/i.test(navigator.userAgent)) {
+    $('start-error').textContent = 'O Firefox não transmite áudio. Para ter som, transmita pelo Chrome ou pelo Edge.';
   }
   try { const saved = localStorage.getItem('peekme-quality'); if (QUALITIES[saved]) $('quality-select').value = saved; } catch {}
   show('home');
