@@ -27,28 +27,15 @@ curl -fsSL https://claude.ai/install.sh | bash && claude
 npm install -g @openai/codex && codex
 ```
 
-**Prompt:**
+**Prompt** (copie e cole):
 
 ```text
-Instale e configure o PeekMe (https://github.com/williampeixinho/PeekMe) neste servidor.
-Clone o repositório em ~/peekme, leia o README.md inteiro e siga as instruções dele.
-Fale comigo em português e faça uma pergunta por vez.
-
-- Instale o Docker se faltar e confira se as portas que o PeekMe usa estão livres.
-- Me ajude a descobrir o meu cenário (porta aberta no roteador, CGNAT/Starlink/4G ou
-  VPS) e me deixe escolher.
-- Pergunte só o que o cenário precisa (domínio, senha de transmissão, tokens do
-  DuckDNS ou do Cloudflare) e me diga exatamente onde clicar para pegar cada um.
-- Crie o .env a partir do .env.example, gere o LIVEKIT_API_SECRET com
-  "openssl rand -hex 32" e rode "chmod 600 .env". Se eu preferir não colar algum
-  segredo no chat, deixe o campo vazio e me peça para preencher com "nano .env".
-  Nunca mostre o conteúdo do .env na tela.
-- Suba os serviços, confira os registros e corrija o que der errado usando a seção
-  "Problemas comuns" do README.
-- Não mexa em outros containers, sites ou serviços que já existem neste servidor.
-- No fim, me diga o endereço do site, o que eu ainda preciso fazer no roteador ou no
-  painel do provedor, e como testar de outra rede (ex.: 4G do celular).
+Instale o PeekMe neste servidor. Clone https://github.com/williampeixinho/PeekMe.git
+em ~/peekme (se já existir, rode git pull) e siga à risca o roteiro em
+docs/INSTALAR-COM-IA.md. Fale comigo em português.
 ```
+
+O roteiro guia o agente em fases: verifica o servidor e as portas, descobre sozinho se a sua internet tem CGNAT, pergunta uma coisa por vez (sempre com uma recomendação), cria a configuração sem mostrar os seus segredos, sobe tudo, confere os registros e termina com um teste real pelo 4G do celular. Ele também serve para atualizar uma instalação existente.
 
 O agente pede autorização antes de rodar cada comando, então você acompanha tudo. Criar a conta no DuckDNS ou no Cloudflare e abrir portas no roteador ainda é com você, no navegador, mas ele explica onde clicar.
 
