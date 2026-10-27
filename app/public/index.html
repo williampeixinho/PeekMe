@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PeekMe</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/"><img src="/icon.svg" alt="" width="28" height="28"> PeekMe</a>
+    <span id="live-badge" class="badge" hidden>AO VIVO</span>
+  </header>
+
+  <!-- Quem transmite: senha -->
+  <main id="view-home" class="center" hidden>
+    <section class="card">
+      <h1>Transmitir sua tela</h1>
+      <p class="muted">Escolha uma tela, janela ou aba e mande o link para os seus amigos assistirem.</p>
+      <form id="start-form">
+        <label for="password">Senha de transmissão</label>
+        <input id="password" type="password" autocomplete="current-password" required>
+        <label for="quality-select">Qualidade</label>
+        <select id="quality-select">
+          <option value="720" selected>720p · 60 fps (mais leve)</option>
+          <option value="1080">1080p · 60 fps (mais nítido, usa mais internet)</option>
+        </select>
+        <label class="check"><input id="audio" type="checkbox" checked> Compartilhar o áudio também</label>
+        <button class="primary" type="submit">Transmitir</button>
+        <p id="start-error" class="error" role="alert"></p>
+      </form>
+    </section>
+  </main>
+
+  <!-- Quem transmite: no ar -->
+  <main id="view-host" class="stage" hidden>
+    <div class="video-wrap"><video id="preview" autoplay muted playsinline></video></div>
+    <aside class="panel">
+      <h2>Você está ao vivo</h2>
+      <label for="share-link">Link para assistir</label>
+      <div class="row">
+        <input id="share-link" readonly>
+        <button id="copy" type="button">Copiar</button>
+      </div>
+      <p class="muted"><strong id="viewer-count">0</strong> de <span id="viewer-max">5</span> assistindo</p>
+      <ul id="viewer-list" class="viewers"></ul>
+      <p id="host-audio" class="warn small" hidden>Sem áudio. Para transmitir o som, pare e escolha uma aba ou a tela inteira marcando "Compartilhar áudio", ou permita uma entrada de áudio (no Linux, "Monitor of …").</p>
+      <p id="host-status" class="muted small"></p>
+      <button id="stop" class="danger" type="button">Parar transmissão</button>
+    </aside>
+  </main>
+
+  <!-- Quem assiste -->
+  <main id="view-join" class="center" hidden>
+    <section class="card">
+      <h1>Assistir transmissão</h1>
+      <p class="muted">Alguém está compartilhando a tela com você.</p>
+      <form id="join-form">
+        <label for="name">Seu nome (opcional)</label>
+        <input id="name" maxlength="24" autocomplete="nickname">
+        <button class="primary" type="submit">Assistir</button>
+        <p id="join-error" class="error" role="alert"></p>
+      </form>
+    </section>
+  </main>
+
+  <main id="view-watch" class="stage watch" hidden>
+    <div class="video-wrap" id="watch-wrap">
+      <video id="screen" autoplay playsinline></video>
+      <div id="waiting" class="overlay">Conectando…</div>
+      <button id="unmute" class="unmute primary" type="button" hidden>🔊 Clique para ativar o som</button>
+      <div class="controls">
+        <button id="mute" type="button" title="Som">🔊</button>
+        <input id="volume" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume">
+        <span class="spacer"></span>
+        <span id="no-audio" class="small" hidden>Transmissão sem áudio</span>
+        <span id="quality" class="small"></span>
+        <button id="fullscreen" type="button" title="Tela cheia">⛶</button>
+      </div>
+    </div>
+  </main>
+
+  <main id="view-ended" class="center" hidden>
+    <section class="card">
+      <h1 id="ended-title">Transmissão encerrada</h1>
+      <p id="ended-text" class="muted">Quem estava transmitindo parou de compartilhar a tela.</p>
+      <a class="button" href="/">Voltar ao início</a>
+    </section>
+  </main>
+
+  <script src="/vendor/livekit-client.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

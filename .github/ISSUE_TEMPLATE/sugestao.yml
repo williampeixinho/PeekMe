@@ -1,0 +1,21 @@
+name: 💡 Sugestão
+description: Ideia de recurso ou melhoria.
+labels: [sugestão]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qual problema isso resolve?
+      placeholder: "Ex.: quero transmitir para mais de 5 pessoas sem travar."
+    validations:
+      required: true
+  - type: textarea
+    id: ideia
+    attributes:
+      label: Como você imagina que funcione?
+    validations:
+      required: true
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas que você já tentou (opcional)

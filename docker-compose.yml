@@ -1,0 +1,81 @@
+# PeekMe: tudo roda em Docker. Para subir: docker compose up -d
+# Todos os serviços usam a rede do host (recomendado pelo LiveKit para vídeo).
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      DOMAIN: ${DOMAIN:?defina DOMAIN no .env}
+      APP_PORT: ${APP_PORT:-3077}
+      CADDY_HTTP_PORT: ${CADDY_HTTP_PORT:-8780}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+      - livekit
+
+  livekit:
+    image: livekit/livekit-server:v1.13
+    restart: unless-stopped
+    network_mode: host
+    # Descobre o IP público da casa por HTTPS ao iniciar (o STUN padrão do LiveKit
+    # pode falhar). Para fixar um IP, defina NODE_IP no .env.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        NODE_IP="$${NODE_IP:-$$(wget -qO- -T 10 https://api.ipify.org || wget -qO- -T 10 https://ifconfig.me/ip)}"
+        if [ -z "$$NODE_IP" ]; then echo "Não consegui descobrir o IP público"; sleep 10; exit 1; fi
+        echo "IP público: $$NODE_IP"
+        export NODE_IP
+        exec /livekit-server --config /etc/livekit.yaml
+    environment:
+      NODE_IP: ${NODE_IP:-}
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY:?defina LIVEKIT_API_KEY no .env}: ${LIVEKIT_API_SECRET:?defina LIVEKIT_API_SECRET no .env}"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+
+  app:
+    build: ./app
+    image: peekme-app
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      PORT: ${APP_PORT:-3077}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      LIVEKIT_HTTP_URL: http://127.0.0.1:7880
+      HOST_PASSWORD: ${HOST_PASSWORD:?defina HOST_PASSWORD no .env}
+      MAX_VIEWERS: ${MAX_VIEWERS:-5}
+      CF_TURN_KEY_ID: ${CF_TURN_KEY_ID:-}
+      CF_TURN_API_TOKEN: ${CF_TURN_API_TOKEN:-}
+    depends_on:
+      - livekit
+
+  # Atualiza o DuckDNS com o IP da sua casa a cada 5 minutos.
+  # Liga só se COMPOSE_PROFILES=duckdns estiver no .env.
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
+    restart: unless-stopped
+    profiles: [duckdns]
+    environment:
+      SUBDOMAINS: ${DUCKDNS_SUBDOMAIN:-}
+      TOKEN: ${DUCKDNS_TOKEN:-}
+      TZ: ${TZ:-America/Sao_Paulo}
+
+  # Cloudflare Tunnel (opcional): publica o site sem abrir portas no roteador.
+  # Liga só se COMPOSE_PROFILES contiver "tunnel" no .env.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    profiles: [tunnel]
+    network_mode: host
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+
+volumes:
+  caddy_data:
+  caddy_config:
