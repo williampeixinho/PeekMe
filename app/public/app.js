@@ -35,7 +35,7 @@ function ended(title, text) {
 
 // ---------- Transmitir ----------
 
-// Qualidades que quem transmite pode escolher. O upload da Pi é o limite:
+// Qualidades que quem transmite pode escolher. O upload de quem hospeda o servidor é o limite:
 // com 5 espectadores, 720p usa ~15 Mbps e 1080p ~25 Mbps.
 // As camadas menores servem quem tem internet fraca.
 const QUALITIES = {

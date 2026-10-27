@@ -8,6 +8,7 @@ services:
     environment:
       DOMAIN: ${DOMAIN:?defina DOMAIN no .env}
       APP_PORT: ${APP_PORT:-3077}
+      CADDY_HTTP_PORT: ${CADDY_HTTP_PORT:-8780}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -62,7 +63,18 @@ services:
     environment:
       SUBDOMAINS: ${DUCKDNS_SUBDOMAIN:-}
       TOKEN: ${DUCKDNS_TOKEN:-}
-      TZ: America/Sao_Paulo
+      TZ: ${TZ:-America/Sao_Paulo}
+
+  # Cloudflare Tunnel (opcional): publica o site sem abrir portas no roteador.
+  # Liga só se COMPOSE_PROFILES contiver "tunnel" no .env.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    profiles: [tunnel]
+    network_mode: host
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
 
 volumes:
   caddy_data:
