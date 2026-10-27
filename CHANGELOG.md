@@ -5,6 +5,8 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+## [1.1.0] - 2026-10-27
+
 ### Recursos
 - Quem assiste também pode transmitir a própria tela, sem senha, pelo botão **Transmitir minha tela**. Várias telas ficam no ar ao mesmo tempo (padrão 3, `MAX_SCREENS`); cada pessoa escolhe uma em destaque ou vê todas em grade. Telas fora de vista não gastam internet.
 - Quem criou a sala também vê as telas dos outros.
@@ -32,5 +34,6 @@ Primeira versão pública.
 - Instalação guiada por IA (Claude Code ou Codex) com um prompt pronto, além do passo a passo manual.
 - `/healthz` informa a versão em execução.
 
-[Não lançado]: https://github.com/williampeixinho/PeekMe/compare/v1.0.0...HEAD
+[Não lançado]: https://github.com/williampeixinho/PeekMe/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/williampeixinho/PeekMe/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/williampeixinho/PeekMe/releases/tag/v1.0.0
