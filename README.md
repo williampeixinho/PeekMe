@@ -10,8 +10,49 @@ Compartilhamento de tela simples e auto-hospedado, no estilo do "Go Live" do Dis
 - Roda inteiro em Docker, inclusive numa Raspberry Pi.
 
 > Licença MIT. Use, modifique e compartilhe à vontade.
->
-> Com preguiça de instalar? Use o [Modo preguiça](#modo-preguiça-o-claude-instala-para-você): um prompt pronto e o Claude Code instala tudo para você.
+
+---
+
+## Instalação com IA: cole um prompt
+
+Não precisa seguir passo a passo nenhum. Abra um agente de IA no terminal do servidor (Raspberry Pi, PC ou VPS, direto ou por SSH), cole o prompt abaixo e responda às perguntas. Ele instala e configura tudo sozinho.
+
+Funciona com o [Claude Code](https://claude.com/claude-code) ou com o [Codex](https://github.com/openai/codex):
+
+```sh
+# Claude Code
+curl -fsSL https://claude.ai/install.sh | bash && claude
+
+# ou Codex (precisa do Node.js)
+npm install -g @openai/codex && codex
+```
+
+**Prompt:**
+
+```text
+Instale e configure o PeekMe (https://github.com/williampeixinho/PeekMe) neste servidor.
+Clone o repositório em ~/peekme, leia o README.md inteiro e siga as instruções dele.
+Fale comigo em português e faça uma pergunta por vez.
+
+- Instale o Docker se faltar e confira se as portas que o PeekMe usa estão livres.
+- Me ajude a descobrir o meu cenário (porta aberta no roteador, CGNAT/Starlink/4G ou
+  VPS) e me deixe escolher.
+- Pergunte só o que o cenário precisa (domínio, senha de transmissão, tokens do
+  DuckDNS ou do Cloudflare) e me diga exatamente onde clicar para pegar cada um.
+- Crie o .env a partir do .env.example, gere o LIVEKIT_API_SECRET com
+  "openssl rand -hex 32" e rode "chmod 600 .env". Se eu preferir não colar algum
+  segredo no chat, deixe o campo vazio e me peça para preencher com "nano .env".
+  Nunca mostre o conteúdo do .env na tela.
+- Suba os serviços, confira os registros e corrija o que der errado usando a seção
+  "Problemas comuns" do README.
+- Não mexa em outros containers, sites ou serviços que já existem neste servidor.
+- No fim, me diga o endereço do site, o que eu ainda preciso fazer no roteador ou no
+  painel do provedor, e como testar de outra rede (ex.: 4G do celular).
+```
+
+O agente pede autorização antes de rodar cada comando, então você acompanha tudo. Criar a conta no DuckDNS ou no Cloudflare e abrir portas no roteador ainda é com você, no navegador, mas ele explica onde clicar.
+
+Prefere fazer à mão? Siga a [instalação manual](#instalação-manual-passo-a-passo).
 
 ---
 
@@ -20,19 +61,18 @@ Compartilhamento de tela simples e auto-hospedado, no estilo do "Go Live" do Dis
 1. [Como funciona](#como-funciona)
 2. [O que você precisa](#o-que-você-precisa)
 3. [Escolha o seu cenário](#escolha-o-seu-cenário)
-4. [Modo preguiça: o Claude instala para você](#modo-preguiça-o-claude-instala-para-você)
-5. [Instalação passo a passo](#instalação-passo-a-passo)
+4. [Instalação manual (passo a passo)](#instalação-manual-passo-a-passo)
    - [Passo comum: Docker e o projeto](#passo-comum-docker-e-o-projeto)
    - [Cenário A: com porta aberta no roteador](#cenário-a-com-porta-aberta-no-roteador)
    - [Cenário B: sem porta aberta (CGNAT, Starlink, 4G)](#cenário-b-sem-porta-aberta-cgnat-starlink-4g)
    - [Cenário C: num servidor na nuvem (VPS)](#cenário-c-num-servidor-na-nuvem-vps)
-6. [Todas as configurações do .env](#todas-as-configurações-do-env)
-7. [Navegadores e áudio](#navegadores-e-áudio)
-8. [Uso no dia a dia](#uso-no-dia-a-dia)
-9. [Atualizar](#atualizar)
-10. [Problemas comuns](#problemas-comuns)
-11. [Segurança](#segurança)
-12. [Desenvolvimento](#desenvolvimento)
+5. [Todas as configurações do .env](#todas-as-configurações-do-env)
+6. [Navegadores e áudio](#navegadores-e-áudio)
+7. [Uso no dia a dia](#uso-no-dia-a-dia)
+8. [Atualizar](#atualizar)
+9. [Problemas comuns](#problemas-comuns)
+10. [Segurança](#segurança)
+11. [Desenvolvimento](#desenvolvimento)
 
 ---
 
@@ -91,56 +131,7 @@ O que decide o caminho é se dá para **abrir portas no seu roteador**.
 
 ---
 
-## Modo preguiça: o Claude instala para você
-
-Não quer seguir o passo a passo? Deixe o [Claude Code](https://claude.com/claude-code) fazer tudo. Ele roda no terminal do servidor, instala o que faltar, faz só as perguntas necessárias e sobe o PeekMe.
-
-**1. No servidor** (Raspberry Pi, PC ou VPS, direto ou por SSH), instale o Claude Code e abra:
-
-```sh
-curl -fsSL https://claude.ai/install.sh | bash
-claude
-```
-
-**2. Cole este prompt** e responda às perguntas:
-
-```text
-Instale e configure o PeekMe (https://github.com/williampeixinho/PeekMe) neste servidor,
-seguindo o README do repositório. Fale comigo em português.
-
-1. Verifique o sistema: arquitetura, se o Docker e o Docker Compose v2 estão instalados
-   (instale com https://get.docker.com se faltar) e se as portas 443, 3077, 7880, 7881,
-   7882 e 8780 estão livres. Se alguma estiver ocupada, me avise e proponha outra.
-2. Clone o repositório em ~/peekme (ou use o clone existente e faça git pull).
-3. Me ajude a descobrir o meu cenário (A: porta aberta no roteador, B: sem porta
-   aberta, como CGNAT/Starlink/4G, usando Cloudflare Tunnel + TURN, C: VPS). Compare o
-   IP público (curl -s https://api.ipify.org) com o IP WAN do meu roteador, que eu vou
-   te dizer. Explique a diferença em uma frase e me deixe escolher.
-4. Pergunte só o que o cenário precisa: domínio; senha de transmissão; token do
-   DuckDNS (A/C, se eu usar DuckDNS); token do Cloudflare Tunnel e chave TURN do
-   Cloudflare (B). Para cada conta externa, me diga exatamente onde clicar para pegar
-   o dado, como está no README.
-5. Crie o .env a partir do .env.example, gere LIVEKIT_API_SECRET com
-   "openssl rand -hex 32", ajuste COMPOSE_PROFILES e rode "chmod 600 .env".
-   Segredos: se eu preferir não colar no chat, deixe o campo vazio e me peça para
-   preencher com "nano .env". Nunca mostre o conteúdo do .env na tela nem o envie
-   para nenhum lugar.
-6. Suba os serviços certos para o cenário (A/C: docker compose up -d --build;
-   B: docker compose up -d --build app livekit cloudflared).
-7. Confira: docker compose ps, os registros de cada serviço e
-   curl -s http://localhost:3077/healthz. Corrija o que der errado usando a seção
-   "Problemas comuns" do README.
-8. No cenário A, me lembre de abrir as portas 443/tcp, 7881/tcp e 7882/udp no
-   roteador para o IP local deste servidor (hostname -I). No C, no firewall do provedor.
-9. No fim, me diga o endereço do site e como testar de outra rede (ex.: 4G do celular).
-Não mexa em outros containers, sites ou serviços que já estão rodando no servidor.
-```
-
-O Claude pede autorização antes de rodar cada comando, então você acompanha tudo. As contas externas (DuckDNS ou Cloudflare) e o redirecionamento de portas no roteador você ainda faz no navegador, mas ele explica onde clicar.
-
----
-
-## Instalação passo a passo
+## Instalação manual (passo a passo)
 
 ### Passo comum: Docker e o projeto
 
