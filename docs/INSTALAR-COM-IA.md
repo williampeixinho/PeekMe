@@ -241,11 +241,11 @@ Site: https://<DOMAIN>
 Transmitir: abra o site e use a sua senha de transmissão.
 Assistir: mande o link que aparece ao transmitir (até <MAX_VIEWERS> pessoas).
 Configuração: ~/peekme/.env (não compartilhe esse arquivo).
-Atualizar: cd ~/peekme && git pull && docker compose up -d --build
+Atualizar: cd ~/peekme && git pull && <COMANDO DA FASE 6 PARA ESTE CENÁRIO>
 Ver se está rodando: cd ~/peekme && docker compose ps
 ```
 
-Não inclua a senha no resumo.
+Troque `<COMANDO DA FASE 6 PARA ESTE CENÁRIO>` pelo comando exato usado na Fase 6 (no cenário B, com a lista de serviços, sem o Caddy). Não inclua a senha no resumo.
 
 ---
 
