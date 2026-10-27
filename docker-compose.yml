@@ -49,6 +49,7 @@ services:
       LIVEKIT_HTTP_URL: http://127.0.0.1:7880
       HOST_PASSWORD: ${HOST_PASSWORD:?defina HOST_PASSWORD no .env}
       MAX_VIEWERS: ${MAX_VIEWERS:-5}
+      MAX_SCREENS: ${MAX_SCREENS:-3}
       CF_TURN_KEY_ID: ${CF_TURN_KEY_ID:-}
       CF_TURN_API_TOKEN: ${CF_TURN_API_TOKEN:-}
     depends_on:

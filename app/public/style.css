@@ -81,3 +81,21 @@ video { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 .warn { color: #ffcf70; margin: 0; }
 .unmute { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); z-index: 2; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+
+/* Telas na sala: uma em destaque ou várias em grade */
+.tiles { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 4px; }
+.grid .tiles { padding: 52px 4px 4px; }
+.tile { position: relative; background: #000; min-width: 0; min-height: 0; overflow: hidden; }
+.grid .tile { cursor: pointer; border-radius: 8px; }
+.grid .tile:hover { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tile-name { display: none; position: absolute; left: 8px; top: 8px; background: rgba(0,0,0,.65); padding: 2px 8px; border-radius: 6px; font-size: 13px; }
+.grid .tile-name { display: block; }
+.tabs { position: absolute; top: 0; left: 0; right: 0; z-index: 1; display: flex; gap: 6px; padding: 10px 12px; overflow-x: auto; background: linear-gradient(rgba(0,0,0,.7), transparent); }
+.tabs button { padding: 6px 12px; font-size: 13px; white-space: nowrap; background: rgba(42,45,54,.9); }
+.tabs button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.controls .share { font-size: 14px; padding: 6px 12px; background: var(--accent); color: #fff; }
+.controls .share.danger { background: var(--danger); }
+.toast { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); z-index: 2; margin: 0; max-width: min(520px, calc(100% - 32px)); background: var(--surface); border: 1px solid var(--surface-2); border-radius: 8px; padding: 10px 14px; font-size: 14px; box-shadow: 0 4px 16px rgba(0,0,0,.4); }
+@media (max-width: 760px) {
+  .tiles { grid-template-columns: 1fr; }
+}

@@ -5,6 +5,13 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+### Recursos
+- Quem assiste também pode transmitir a própria tela, sem senha, pelo botão **Transmitir minha tela**. Várias telas ficam no ar ao mesmo tempo (padrão 3, `MAX_SCREENS`); cada pessoa escolhe uma em destaque ou vê todas em grade. Telas fora de vista não gastam internet.
+- Quem criou a sala também vê as telas dos outros.
+
+### Correções
+- O microfone só é usado como entrada de áudio no Firefox. Nos outros navegadores, uma tela sem som agora só mostra um aviso, em vez de transmitir o microfone.
+
 ### Melhorias
 - README: seção de requisitos no topo e resposta clara sobre instalar no Windows.
 - Instalação com IA: prompt curto e roteiro detalhado em `docs/INSTALAR-COM-IA.md` (detecção de CGNAT, verificação de portas, segredos protegidos, teste final e modo de atualização).

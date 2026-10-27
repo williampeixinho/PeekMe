@@ -154,7 +154,7 @@ Preencha com `sed` ou um pequeno script, **sem imprimir valores**. Sempre:
 - `LIVEKIT_API_SECRET=$(openssl rand -hex 32)`
 - `HOST_PASSWORD`, `DOMAIN`, `COMPOSE_PROFILES` e os tokens do cenário
 - `APP_PORT` / `CADDY_HTTP_PORT` se mudaram na Fase 1
-- `MAX_VIEWERS` se diferente de 5
+- `MAX_VIEWERS` se diferente de 5, `MAX_SCREENS` se diferente de 3
 
 Se a pessoa preferiu digitar algum segredo ela mesma, deixe o campo vazio, peça para editar com `nano ~/peekme/.env` e avise quando terminar.
 
