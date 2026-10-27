@@ -1,0 +1,57 @@
+name: 🐞 Problema
+description: Algo não está funcionando como deveria.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por avisar! Antes de abrir, confira a seção **Problemas comuns** do README.
+        **Nunca cole o seu `.env`, senhas, tokens, chaves ou IP público aqui.** Esta página é pública.
+  - type: textarea
+    id: oque
+    attributes:
+      label: O que aconteceu?
+      description: Descreva o problema e o que você esperava que acontecesse.
+    validations:
+      required: true
+  - type: textarea
+    id: passos
+    attributes:
+      label: Como reproduzir
+      placeholder: |
+        1. Abri o site no Chrome
+        2. Cliquei em Transmitir
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: versao
+    attributes:
+      label: Versão do PeekMe
+      description: "Veja com: curl -s http://localhost:3077/healthz"
+      placeholder: "1.0.0"
+  - type: dropdown
+    id: cenario
+    attributes:
+      label: Cenário de instalação
+      options:
+        - "A: porta aberta no roteador"
+        - "B: sem porta aberta (Cloudflare Tunnel + TURN)"
+        - "C: VPS"
+        - Não sei
+  - type: input
+    id: servidor
+    attributes:
+      label: Servidor
+      placeholder: "Raspberry Pi 5, Ubuntu 24.04, VPS ARM..."
+  - type: input
+    id: navegador
+    attributes:
+      label: Sistema e navegador de quem transmite / assiste
+      placeholder: "Transmite: Windows 11 + Chrome 130. Assiste: Android + Chrome"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Registros (opcional)
+      description: "Saída de `docker compose logs --tail 50 app livekit`. Revise e apague dados pessoais antes de colar."
+      render: shell

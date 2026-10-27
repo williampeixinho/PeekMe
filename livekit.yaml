@@ -1,0 +1,17 @@
+# Configuração do LiveKit (servidor de vídeo).
+# As chaves vêm da variável LIVEKIT_KEYS, definida no .env.
+port: 7880
+rtc:
+  # Vídeo via UDP (o normal) e TCP (para redes que bloqueiam UDP).
+  udp_port: 7882
+  tcp_port: 7881
+  # O IP público é passado pela variável NODE_IP (veja docker-compose.yml).
+  use_external_ip: false
+  # Anuncia também o IP da rede local, para quem está em casa conectar direto.
+  advertise_internal_ip: true
+room:
+  # 1 transmissor + 5 espectadores
+  max_participants: 6
+  empty_timeout: 60
+logging:
+  level: info
