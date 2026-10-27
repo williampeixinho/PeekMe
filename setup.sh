@@ -9,7 +9,7 @@ if [ -f .env ]; then
   [ "$answer" = "s" ] || [ "$answer" = "S" ] || exit 0
 fi
 
-printf 'Seu subdomínio no DuckDNS (só o nome, ex.: peekme-do-will) ou o domínio completo se usar outro DDNS: '
+printf 'Seu subdomínio no DuckDNS (só o nome, ex.: meu-peekme) ou o domínio completo se usar outro DDNS: '
 read -r name
 case "$name" in
   *.*) domain="$name"; duck_sub="" ;;

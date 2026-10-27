@@ -1,7 +1,8 @@
 # Caddy: HTTPS automático (Let's Encrypt) para o seu domínio.
 {
-	# A porta 80 da Pi já é usada pelo nginx, então o Caddy fica só na 443.
+	# O Caddy fica só na 443, então a porta 80 continua livre para outros sites.
 	# O certificado é emitido pela própria 443 (desafio TLS-ALPN).
+	# A porta HTTP interna (8780 por padrão) não precisa ser aberta no roteador.
 	http_port {$CADDY_HTTP_PORT:8780}
 	auto_https disable_redirects
 }

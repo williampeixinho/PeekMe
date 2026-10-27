@@ -2,6 +2,7 @@
   "name": "peekme",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Compartilhamento de tela simples, estilo 'Go Live' do Discord.",
   "main": "server.js",
   "scripts": { "start": "node server.js" },

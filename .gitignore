@@ -1,2 +1,9 @@
+# Segredos e configurações locais: nunca vão para o git
 .env
+.env.*
+!.env.example
+docker-compose.override.yml
+*.local
+*.local.*
+
 node_modules/
