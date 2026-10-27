@@ -6,7 +6,8 @@ Compartilhamento de tela simples e auto-hospedado, no estilo do "Go Live" do Dis
 - **Assistir:** abra o link `https://seu-dominio/assistir/xxxxxxxx`, digite um nome (opcional) e clique em Assistir. Funciona no celular também.
 - **Qualidade:** 720p ou 1080p a 60 fps, escolhida na hora de transmitir. Quem tem internet fraca recebe automaticamente uma versão menor.
 - **Áudio:** jogos e vídeos com som (veja [Navegadores e áudio](#navegadores-e-áudio)).
-- **Uma transmissão por vez.** Se já houver uma no ar, o site pergunta se você quer encerrá-la.
+- **Várias telas na mesma sala.** Quem assiste também pode clicar em **Transmitir minha tela** (sem senha). Com mais de uma tela no ar, cada pessoa escolhe qual ver em destaque ou vê todas em grade. O limite padrão é 3 telas ao mesmo tempo (`MAX_SCREENS`).
+- **Uma sala por vez.** Quem tem a senha cria a sala; se já houver uma no ar, o site pergunta se você quer encerrá-la. Quando quem criou a sala para, ela fecha para todos.
 - Roda inteiro em Docker num servidor Linux, inclusive numa Raspberry Pi. Transmitir e assistir funciona em qualquer sistema, inclusive Windows (veja os [Requisitos](#requisitos)).
 
 > Licença MIT. Use, modifique e compartilhe à vontade.
@@ -288,6 +289,7 @@ O arquivo `.env` fica na pasta do projeto e **nunca** deve ir para o git (já es
 | `LIVEKIT_API_KEY` | sim | Nome da chave do LiveKit (pode ficar `peekme`) |
 | `LIVEKIT_API_SECRET` | sim | Segredo do LiveKit, 32+ caracteres. Gere com `openssl rand -hex 32` |
 | `MAX_VIEWERS` | não | Máximo de espectadores (padrão 5) |
+| `MAX_SCREENS` | não | Máximo de telas no ar ao mesmo tempo, contando a de quem criou a sala (padrão 3). `1` = só quem tem a senha transmite |
 | `APP_PORT` | não | Porta interna do site (padrão 3077) |
 | `NODE_IP` | não | IP público fixo. Vazio = descobre sozinho ao iniciar |
 | `CADDY_HTTP_PORT` | não | Porta HTTP interna do Caddy (padrão 8780, não precisa abrir) |
@@ -318,6 +320,7 @@ Dicas:
 - Compartilhar uma **janela** (em vez da tela inteira ou de uma aba) normalmente vai **sem som** no Chrome/Edge.
 - Se o navegador de quem assiste bloquear o som automático, aparece um botão para ativar o áudio.
 - Se a transmissão estiver sem som, o PeekMe avisa tanto quem transmite quanto quem assiste.
+- A entrada de áudio é usada só no Firefox. Nos outros navegadores, se a tela vier sem som, o PeekMe apenas avisa, para nunca transmitir o seu microfone por engano.
 
 ---
 
@@ -325,6 +328,7 @@ Dicas:
 
 - **Trocar a senha:** edite `HOST_PASSWORD` no `.env` e rode `docker compose up -d`.
 - **Mais ou menos espectadores:** mude `MAX_VIEWERS`. Faça a conta com o seu upload (tabela em [Requisitos](#requisitos)).
+- **Espectadores transmitindo:** quem assiste pelo computador vê o botão **Transmitir minha tela** enquanto houver vaga (`MAX_SCREENS`). Cada tela é enviada pelo servidor a quem estiver vendo, então mais telas pesam no upload. Para poupar internet, quem assiste só recebe o vídeo das telas que aparecem na página: com uma tela em destaque, as outras não chegam; na grade, cada uma vem numa versão menor. Para desligar, use `MAX_SCREENS=1`.
 - **Encerrar:** clique em Parar no site. Se a aba for fechada, a sala some sozinha em cerca de um minuto.
 - **Parar o servidor:** `docker compose down`. Para ligar de novo: `docker compose up -d` (no cenário B, liste os serviços como no passo B4).
 

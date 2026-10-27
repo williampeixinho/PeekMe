@@ -33,10 +33,25 @@
     </section>
   </main>
 
-  <!-- Quem transmite: no ar -->
-  <main id="view-host" class="stage" hidden>
-    <div class="video-wrap"><video id="preview" autoplay muted playsinline></video></div>
-    <aside class="panel">
+  <!-- Ao vivo: quem criou a sala e quem assiste usam a mesma tela -->
+  <main id="view-live" class="stage" hidden>
+    <div class="video-wrap" id="stage">
+      <nav id="tabs" class="tabs" aria-label="Escolher tela" hidden></nav>
+      <div id="tiles" class="tiles"></div>
+      <div id="waiting" class="overlay">Conectando…</div>
+      <button id="unmute" class="unmute primary" type="button" hidden>🔊 Clique para ativar o som</button>
+      <p id="toast" class="toast" role="status" hidden></p>
+      <div class="controls">
+        <button id="mute" type="button" title="Som">🔊</button>
+        <input id="volume" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume">
+        <span class="spacer"></span>
+        <span id="no-audio" class="small" hidden>Tela sem áudio</span>
+        <span id="quality" class="small"></span>
+        <button id="share" class="share" type="button" hidden>🖥️ Transmitir minha tela</button>
+        <button id="fullscreen" type="button" title="Tela cheia">⛶</button>
+      </div>
+    </div>
+    <aside class="panel" id="host-panel">
       <h2>Você está ao vivo</h2>
       <label for="share-link">Link para assistir</label>
       <div class="row">
@@ -45,7 +60,7 @@
       </div>
       <p class="muted"><strong id="viewer-count">0</strong> de <span id="viewer-max">5</span> assistindo</p>
       <ul id="viewer-list" class="viewers"></ul>
-      <p id="host-audio" class="warn small" hidden>Sem áudio. Para transmitir o som, pare e escolha uma aba ou a tela inteira marcando "Compartilhar áudio", ou permita uma entrada de áudio (no Linux, "Monitor of …").</p>
+      <p id="host-audio" class="warn small" hidden>Sem áudio. Para transmitir o som, pare e escolha uma aba ou a tela inteira marcando "Compartilhar áudio".</p>
       <p id="host-status" class="muted small"></p>
       <button id="stop" class="danger" type="button">Parar transmissão</button>
     </aside>
@@ -63,22 +78,6 @@
         <p id="join-error" class="error" role="alert"></p>
       </form>
     </section>
-  </main>
-
-  <main id="view-watch" class="stage watch" hidden>
-    <div class="video-wrap" id="watch-wrap">
-      <video id="screen" autoplay playsinline></video>
-      <div id="waiting" class="overlay">Conectando…</div>
-      <button id="unmute" class="unmute primary" type="button" hidden>🔊 Clique para ativar o som</button>
-      <div class="controls">
-        <button id="mute" type="button" title="Som">🔊</button>
-        <input id="volume" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume">
-        <span class="spacer"></span>
-        <span id="no-audio" class="small" hidden>Transmissão sem áudio</span>
-        <span id="quality" class="small"></span>
-        <button id="fullscreen" type="button" title="Tela cheia">⛶</button>
-      </div>
-    </div>
   </main>
 
   <main id="view-ended" class="center" hidden>

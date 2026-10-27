@@ -6,7 +6,7 @@ const net = require('net');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { AccessToken, RoomServiceClient } = require('livekit-server-sdk');
+const { AccessToken, RoomServiceClient, TrackSource } = require('livekit-server-sdk');
 
 const VERSION = require('./package.json').version;
 const PORT = Number(process.env.PORT || 3077);
@@ -18,6 +18,9 @@ const LIVEKIT_HTTP = process.env.LIVEKIT_HTTP_URL || 'http://127.0.0.1:7880';
 // Endereço que o navegador usa. Vazio = mesmo domínio do site (o Caddy encaminha /rtc).
 const LIVEKIT_PUBLIC_URL = process.env.LIVEKIT_PUBLIC_URL || '';
 const MAX_VIEWERS = Number(process.env.MAX_VIEWERS || 5);
+// Quantas telas podem estar no ar ao mesmo tempo, contando a de quem criou a sala.
+// 1 = só quem tem a senha transmite; quem assiste não ganha o botão de transmitir.
+const MAX_SCREENS = Math.max(1, Number(process.env.MAX_SCREENS || 3));
 
 for (const [name, value] of Object.entries({ LIVEKIT_API_KEY: API_KEY, LIVEKIT_API_SECRET: API_SECRET, HOST_PASSWORD })) {
   if (!value) { console.error(`Falta a variável ${name} (veja o arquivo .env)`); process.exit(1); }
@@ -49,6 +52,16 @@ function checkPassword(given) {
   const a = crypto.createHash('sha256').update(String(given || '')).digest();
   const b = crypto.createHash('sha256').update(HOST_PASSWORD).digest();
   return crypto.timingSafeEqual(a, b);
+}
+
+// Chave que prova que quem pede para transmitir é mesmo aquele espectador.
+function viewerKey(room, identity) {
+  return crypto.createHmac('sha256', API_SECRET).update(`${room}:${identity}`).digest('hex');
+}
+function checkViewerKey(room, identity, key) {
+  const a = Buffer.from(viewerKey(room, String(identity || '')));
+  const b = Buffer.from(String(key || ''));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 function newCode() {
@@ -139,8 +152,8 @@ async function start(req, res) {
   const room = newCode();
   await rooms.createRoom({ name: room, maxParticipants: MAX_VIEWERS + 1, emptyTimeout: 60, departureTimeout: 20 });
   current = { room, hostSecret: crypto.randomBytes(16).toString('hex') };
-  const jwt = await token(room, HOST_ID, 'Transmissor', { canPublish: true, canSubscribe: false, canPublishData: false });
-  json(res, 200, { room, token: jwt, url: LIVEKIT_PUBLIC_URL, iceServers: await iceServers(), hostSecret: current.hostSecret, maxViewers: MAX_VIEWERS });
+  const jwt = await token(room, HOST_ID, 'Anfitrião', { canPublish: true, canSubscribe: true, canPublishData: false });
+  json(res, 200, { room, token: jwt, url: LIVEKIT_PUBLIC_URL, iceServers: await iceServers(), hostSecret: current.hostSecret, maxViewers: MAX_VIEWERS, maxScreens: MAX_SCREENS });
 }
 
 // POST /api/stop { room, hostSecret }
@@ -164,8 +177,51 @@ async function watch(req, res) {
     return json(res, 403, { error: `A sala está cheia (máximo de ${MAX_VIEWERS} pessoas assistindo).` });
   }
   const name = String(body.name || '').trim().slice(0, 24) || 'Alguém';
-  const jwt = await token(room, `v-${crypto.randomBytes(6).toString('hex')}`, name, { canPublish: false, canSubscribe: true, canPublishData: false });
-  json(res, 200, { token: jwt, url: LIVEKIT_PUBLIC_URL, iceServers: await iceServers() });
+  const identity = `v-${crypto.randomBytes(6).toString('hex')}`;
+  // Quem assiste entra sem poder publicar; a permissão vem de /api/share, que controla o limite de telas.
+  const jwt = await token(room, identity, name, { canPublish: false, canSubscribe: true, canPublishData: false });
+  json(res, 200, { token: jwt, url: LIVEKIT_PUBLIC_URL, iceServers: await iceServers(), identity, key: viewerKey(room, identity), maxScreens: MAX_SCREENS });
+}
+
+const SHARE_SOURCES = [TrackSource.SCREEN_SHARE, TrackSource.SCREEN_SHARE_AUDIO, TrackSource.MICROPHONE];
+function setCanPublish(room, identity, canPublish) {
+  return rooms.updateParticipant(room, identity, undefined, {
+    canPublish, canSubscribe: true, canPublishData: false, canPublishSources: canPublish ? SHARE_SOURCES : [],
+  });
+}
+
+// Pedidos de transmitir são atendidos um de cada vez, para dois não passarem do limite juntos.
+let shareQueue = Promise.resolve();
+
+// POST /api/share { room, identity, key } -> { ok }  libera quem assiste para transmitir a tela
+async function share(req, res) {
+  const body = await readBody(req);
+  const room = String(body.room || '');
+  if (MAX_SCREENS <= 1) return json(res, 403, { error: 'Nesta sala só quem criou a transmissão pode compartilhar a tela.' });
+  if (!current || room !== current.room || !checkViewerKey(room, body.identity, body.key)) return json(res, 403, { error: 'Não autorizado.' });
+  const run = shareQueue.then(async () => {
+    const list = await rooms.listParticipants(room);
+    const me = list.find(p => p.identity === body.identity);
+    if (!me) return [404, { error: 'Você não está mais na sala.' }];
+    if (me.permission?.canPublish) return [200, { ok: true }];
+    if (list.filter(p => p.permission?.canPublish).length >= MAX_SCREENS) {
+      return [409, { error: `Já tem ${MAX_SCREENS} telas no ar. Espere alguém parar de transmitir.` }];
+    }
+    await setCanPublish(room, me.identity, true);
+    return [200, { ok: true }];
+  });
+  shareQueue = run.catch(() => {});
+  const [status, result] = await run;
+  json(res, status, result);
+}
+
+// POST /api/unshare { room, identity, key }  devolve a vaga de tela
+async function unshare(req, res) {
+  const body = await readBody(req);
+  const room = String(body.room || '');
+  if (!current || room !== current.room || !checkViewerKey(room, body.identity, body.key)) return json(res, 403, { error: 'Não autorizado.' });
+  await setCanPublish(room, String(body.identity), false).catch(() => {});
+  json(res, 200, { ok: true });
 }
 
 function serveFile(res, file) {
@@ -177,7 +233,7 @@ function serveFile(res, file) {
   });
 }
 
-const routes = { '/api/start': start, '/api/stop': stop, '/api/watch': watch };
+const routes = { '/api/start': start, '/api/stop': stop, '/api/watch': watch, '/api/share': share, '/api/unshare': unshare };
 
 // /rtc é a sinalização do LiveKit. O site repassa essas conexões para ele, assim
 // tudo funciona por uma porta só (útil atrás de Cloudflare Tunnel ou outro proxy).

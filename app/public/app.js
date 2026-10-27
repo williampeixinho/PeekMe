@@ -2,11 +2,13 @@
 const { Room, RoomEvent, Track, VideoPreset, AudioPresets, ConnectionQuality } = LivekitClient;
 
 const $ = id => document.getElementById(id);
-const views = ['home', 'host', 'join', 'watch', 'ended'];
+const views = ['home', 'live', 'join', 'ended'];
 function show(name) {
   for (const v of views) $(`view-${v}`).hidden = v !== name;
-  $('live-badge').hidden = !(name === 'host' || name === 'watch');
+  $('live-badge').hidden = name !== 'live';
 }
+const isFirefox = /firefox/i.test(navigator.userAgent);
+const canCapture = window.isSecureContext && !!navigator.mediaDevices?.getDisplayMedia;
 
 // Por padrão o LiveKit fica no mesmo domínio do site (o Caddy encaminha /rtc).
 function livekitUrl(url) {
@@ -27,6 +29,7 @@ async function api(path, body) {
 }
 
 function ended(title, text) {
+  resetStage();
   $('ended-title').textContent = title;
   $('ended-text').textContent = text;
   show('ended');
@@ -66,7 +69,226 @@ const SCREEN_PUBLISH = {
   forceStereo: true,
 };
 
-let host = null; // { room, code, hostSecret }
+const MIC_CAPTURE = { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 };
+const MIC_PUBLISH = { audioPreset: AudioPresets.musicHighQualityStereo, dtx: false, red: true, forceStereo: true };
+
+// Captura a tela e publica na sala. beforePublish roda entre a escolha da tela e a publicação
+// (quem assiste pede permissão ao servidor nessa hora). Devolve a faixa de vídeo.
+async function publishScreen(room, { quality = '720', audio = true, beforePublish } = {}) {
+  const q = QUALITIES[quality] || QUALITIES['720'];
+  const lp = room.localParticipant;
+  const tracks = await lp.createScreenTracks({
+    ...SCREEN_CAPTURE,
+    resolution: q.resolution,
+    audio: audio && { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+  });
+  try {
+    if (beforePublish) await beforePublish();
+    for (const track of tracks) {
+      await lp.publishTrack(track, { ...SCREEN_PUBLISH, screenShareEncoding: q.encoding, screenShareSimulcastLayers: q.layers });
+    }
+  } catch (err) {
+    tracks.forEach(t => t.stop());
+    throw err;
+  }
+  // O Firefox não manda o som junto com a tela: usa uma entrada de áudio (no Linux,
+  // "Monitor of …" envia o som do computador). Nos outros navegadores isso pegaria o
+  // microfone, então ali só avisamos que a tela está sem áudio.
+  if (audio && isFirefox && !tracks.some(t => t.kind === Track.Kind.Audio)) {
+    try {
+      await lp.setMicrophoneEnabled(true, MIC_CAPTURE, MIC_PUBLISH);
+    } catch (err) {
+      console.error('Sem entrada de áudio:', err);
+    }
+  }
+  const video = tracks.find(t => t.kind === Track.Kind.Video);
+  showLocalScreen(room, video);
+  return video;
+}
+
+async function unpublishScreen(room) {
+  const lp = room.localParticipant;
+  for (const source of [Track.Source.ScreenShare, Track.Source.ScreenShareAudio, Track.Source.Microphone]) {
+    const pub = lp.getTrackPublication(source);
+    if (pub?.track) await lp.unpublishTrack(pub.track, true).catch(() => {});
+  }
+  const tile = tiles.get(lp.identity);
+  if (tile) { tile.hasVideo = false; tile.video.srcObject = null; }
+  render();
+}
+
+function hasAudio(participant) {
+  return !!(participant.getTrackPublication(Track.Source.ScreenShareAudio) || participant.getTrackPublication(Track.Source.Microphone));
+}
+
+// ---------- Telas na sala ----------
+// Cada pessoa transmitindo vira um quadro. Com uma tela só, ela ocupa tudo; com várias,
+// dá para ver em grade ou escolher uma pelas abas. Quadros escondidos não recebem vídeo
+// (adaptiveStream), e na grade cada um recebe uma versão menor: isso poupa o upload do servidor.
+
+let live = null;          // { room, role: 'host' | 'viewer', code, session }
+const tiles = new Map();  // identity -> { identity, participant, el, video, label, audio, isLocal, hasVideo, videoAt }
+let focus = null;         // identity da tela em destaque; null = grade
+let picked = false;       // a pessoa escolheu a visualização (senão, escolhemos sozinhos)
+let statusText = 'Conectando…';
+let sharing = false;      // quem assiste está transmitindo a própria tela
+let shareBusy = false;    // pedido de transmitir/parar em andamento
+
+function tileFor(participant) {
+  let tile = tiles.get(participant.identity);
+  if (tile) return tile;
+  const el = document.createElement('div');
+  el.className = 'tile';
+  el.dataset.id = participant.identity;
+  const video = document.createElement('video');
+  video.autoplay = true;
+  video.playsInline = true;
+  video.muted = true; // o som vai pelo elemento de áudio
+  const label = document.createElement('span');
+  label.className = 'tile-name';
+  el.append(video, label);
+  $('tiles').append(el);
+  tile = { identity: participant.identity, participant, el, video, label, audio: new Audio(), isLocal: participant.isLocal, hasVideo: false, videoAt: 0 };
+  tiles.set(participant.identity, tile);
+  return tile;
+}
+
+function removeTile(identity) {
+  const tile = tiles.get(identity);
+  if (!tile) return;
+  tile.el.remove();
+  tile.audio.srcObject = null;
+  tiles.delete(identity);
+  render();
+}
+
+function resetStage() {
+  for (const id of [...tiles.keys()]) removeTile(id);
+  focus = null;
+  picked = false;
+  sharing = false;
+  statusText = 'Conectando…';
+}
+
+function showLocalScreen(room, video) {
+  if (!video) return;
+  const tile = tileFor(room.localParticipant);
+  tile.video.srcObject = new MediaStream([video.mediaStreamTrack]);
+  tile.hasVideo = true;
+  render();
+}
+
+function setFocus(identity) {
+  focus = identity;
+  picked = true;
+  render();
+}
+
+function setStatus(text) {
+  statusText = text;
+  render();
+}
+
+function screensOnAir() {
+  if (!live) return 0;
+  return [live.room.localParticipant, ...live.room.remoteParticipants.values()]
+    .filter(p => p.getTrackPublication(Track.Source.ScreenShare)).length;
+}
+
+function render() {
+  const list = [...tiles.values()].filter(t => t.hasVideo);
+  if (focus && !list.some(t => t.identity === focus)) { focus = null; picked = false; }
+  // Sem escolha da pessoa: uma tela fica em destaque, várias ficam em grade.
+  if (!picked) focus = list.length === 1 ? list[0].identity : null;
+  const grid = focus === null;
+  $('stage').classList.toggle('grid', grid && list.length > 1);
+  // Com uma tela em destaque, ela ocupa a coluna toda.
+  $('tiles').style.setProperty('--cols', grid ? Math.ceil(Math.sqrt(list.length)) || 1 : 1);
+
+  const muted = $('mute').dataset.muted === '1';
+  for (const t of tiles.values()) {
+    const visible = t.hasVideo && (grid || t.identity === focus);
+    t.el.hidden = !visible;
+    t.label.textContent = t.isLocal ? 'Você' : (t.participant.name || 'Alguém');
+    // Na grade toca o som de todos; com uma tela em destaque, só o dela.
+    t.audio.muted = muted || !(grid || t.identity === focus);
+  }
+
+  const tabs = list.length > 1 ? [{ id: null, text: '▦ Grade' }, ...list.map(t => ({ id: t.identity, text: t.isLocal ? 'Você' : (t.participant.name || 'Alguém') }))] : [];
+  $('tabs').hidden = !tabs.length;
+  $('tabs').replaceChildren(...tabs.map(({ id, text }) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = text;
+    b.setAttribute('aria-pressed', String(id === focus));
+    b.addEventListener('click', e => { e.stopPropagation(); setFocus(id); });
+    return b;
+  }));
+
+  $('waiting').textContent = statusText || 'Aguardando a tela…';
+  $('waiting').hidden = !statusText && list.length > 0;
+
+  // Aviso de tela sem áudio (dá um tempo para o som chegar depois do vídeo).
+  const shown = !grid && tiles.get(focus);
+  $('no-audio').hidden = !(shown && !shown.isLocal && Date.now() - shown.videoAt > 2500 && !hasAudio(shown.participant));
+
+  if (live?.role === 'viewer') {
+    const full = !sharing && screensOnAir() >= live.session.maxScreens;
+    $('share').textContent = sharing ? '⏹ Parar minha tela' : '🖥️ Transmitir minha tela';
+    $('share').classList.toggle('danger', sharing);
+    $('share').disabled = full || shareBusy;
+    $('share').title = full ? `Já tem ${live.session.maxScreens} telas no ar` : '';
+  }
+  if (live?.role === 'host') updateViewers();
+}
+
+let toastTimer = null;
+function toast(text) {
+  $('toast').textContent = text;
+  $('toast').hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { $('toast').hidden = true; }, 6000);
+}
+
+// Eventos da sala iguais para quem criou e para quem assiste.
+function wireRoom(room) {
+  room
+    .on(RoomEvent.TrackSubscribed, (track, pub, participant) => {
+      const tile = tileFor(participant);
+      if (track.kind === Track.Kind.Video) {
+        track.attach(tile.video);
+        tile.hasVideo = true;
+        tile.videoAt = Date.now();
+        setTimeout(render, 3000);
+      } else if (track.kind === Track.Kind.Audio) {
+        track.attach(tile.audio);
+        applyVolume();
+        // Alguns navegadores bloqueiam o som até um novo clique.
+        tile.audio.play().catch(() => { $('unmute').hidden = false; });
+      }
+      render();
+    })
+    .on(RoomEvent.TrackUnsubscribed, (track, pub, participant) => {
+      track.detach();
+      const tile = tiles.get(participant.identity);
+      if (tile && track.kind === Track.Kind.Video) tile.hasVideo = false;
+      render();
+    })
+    .on(RoomEvent.TrackPublished, render)
+    .on(RoomEvent.TrackUnpublished, render)
+    .on(RoomEvent.LocalTrackUnpublished, render)
+    .on(RoomEvent.ParticipantConnected, render)
+    .on(RoomEvent.ParticipantDisconnected, p => removeTile(p.identity))
+    .on(RoomEvent.AudioPlaybackStatusChanged, () => { $('unmute').hidden = room.canPlaybackAudio; })
+    .on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
+      if (!participant.isLocal) return;
+      $('quality').textContent = quality === ConnectionQuality.Poor ? 'Conexão fraca' : '';
+    })
+    .on(RoomEvent.Reconnecting, () => setStatus('Reconectando…'))
+    .on(RoomEvent.Reconnected, () => setStatus(''));
+}
+
+// ---------- Transmitir (quem tem a senha) ----------
 
 async function startStream(force = false) {
   const btn = $('start-form').querySelector('button');
@@ -82,18 +304,14 @@ async function startStream(force = false) {
     return;
   }
 
-  const room = new Room({ adaptiveStream: false, dynacast: true });
-  host = { room, code: session.room, hostSecret: session.hostSecret };
+  const room = new Room({ adaptiveStream: true, dynacast: true });
+  live = { room, role: 'host', code: session.room, session };
+  wireRoom(room);
+  let video;
   try {
     await room.connect(livekitUrl(session.url), session.token, connectOptions(session));
-    const audio = $('audio').checked && { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
-    const q = QUALITIES[$('quality-select').value] || QUALITIES['720'];
     try { localStorage.setItem('peekme-quality', $('quality-select').value); } catch {}
-    await room.localParticipant.setScreenShareEnabled(
-      true,
-      { ...SCREEN_CAPTURE, resolution: q.resolution, audio },
-      { ...SCREEN_PUBLISH, screenShareEncoding: q.encoding, screenShareSimulcastLayers: q.layers },
-    );
+    video = await publishScreen(room, { quality: $('quality-select').value, audio: $('audio').checked });
   } catch (err) {
     console.error(err);
     await stopStream(true);
@@ -103,63 +321,49 @@ async function startStream(force = false) {
       : 'Não foi possível iniciar a transmissão. Veja se o navegador permite compartilhar a tela.';
     return;
   }
-
-  // O navegador não mandou o som junto com a tela (ex.: Firefox): usa uma entrada
-  // de áudio. No Linux, escolha "Monitor of …" para enviar o som do computador.
-  if ($('audio').checked && !room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio)) {
-    try {
-      await room.localParticipant.setMicrophoneEnabled(
-        true,
-        { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2 },
-        { audioPreset: AudioPresets.musicHighQualityStereo, dtx: false, red: true, forceStereo: true },
-      );
-    } catch (err) {
-      console.error('Sem entrada de áudio:', err);
-    }
-  }
   btn.disabled = false;
 
-  const pub = room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
-  $('preview').srcObject = new MediaStream([pub.track.mediaStreamTrack]);
   // O usuário clicou em "Parar de compartilhar" na barra do navegador.
-  pub.track.on('ended', () => stopStream());
-  // Avisa quando o navegador não entregou o áudio (janela, Firefox ou caixa desmarcada).
-  $('host-audio').hidden = hasAudio(room.localParticipant);
+  video.on('ended', () => stopStream());
+  // Avisa quando o navegador não entregou o áudio (janela ou caixa desmarcada).
+  $('host-audio').hidden = !$('audio').checked || hasAudio(room.localParticipant);
 
-  const link = `${location.origin}/assistir/${session.room}`;
-  $('share-link').value = link;
+  $('share-link').value = `${location.origin}/assistir/${session.room}`;
   $('viewer-max').textContent = session.maxViewers;
-  updateViewers();
-  room.on(RoomEvent.ParticipantConnected, updateViewers)
-    .on(RoomEvent.ParticipantDisconnected, updateViewers)
+  room
     .on(RoomEvent.Reconnecting, () => { $('host-status').textContent = 'Conexão instável, reconectando…'; })
     .on(RoomEvent.Reconnected, () => { $('host-status').textContent = ''; })
-    .on(RoomEvent.Disconnected, () => { if (host) { host = null; ended('Transmissão encerrada', 'A conexão com o servidor caiu.'); } });
+    .on(RoomEvent.Disconnected, () => { if (live?.room === room) { live = null; ended('Transmissão encerrada', 'A conexão com o servidor caiu.'); } });
 
   history.replaceState(null, '', '/');
   document.title = '🔴 Ao vivo · PeekMe';
-  show('host');
+  $('view-live').classList.remove('watch');
+  $('host-panel').hidden = false;
+  $('share').hidden = true;
+  statusText = '';
+  show('live');
+  render();
 }
 
 function updateViewers() {
-  if (!host) return;
-  const viewers = [...host.room.remoteParticipants.values()];
+  if (live?.role !== 'host') return;
+  const viewers = [...live.room.remoteParticipants.values()];
   $('viewer-count').textContent = viewers.length;
   $('viewer-list').replaceChildren(...viewers.map(p => {
     const li = document.createElement('li');
-    li.textContent = p.name || 'Alguém';
+    li.textContent = (p.name || 'Alguém') + (p.getTrackPublication(Track.Source.ScreenShare) ? ' · transmitindo' : '');
     return li;
   }));
 }
 
 async function stopStream(silent = false) {
-  if (!host) return;
-  const { room, code, hostSecret } = host;
-  host = null;
-  $('preview').srcObject = null;
-  await api('/api/stop', { room: code, hostSecret }).catch(() => {});
+  if (live?.role !== 'host') return;
+  const { room, code, session } = live;
+  live = null;
+  await api('/api/stop', { room: code, hostSecret: session.hostSecret }).catch(() => {});
   await room.disconnect();
-  if (!silent) ended('Transmissão encerrada', 'Você parou de compartilhar a tela.');
+  if (silent) resetStage();
+  else ended('Transmissão encerrada', 'Você parou de compartilhar a tela.');
 }
 
 $('start-form').addEventListener('submit', e => { e.preventDefault(); startStream(); });
@@ -174,16 +378,12 @@ $('copy').addEventListener('click', async () => {
   $('copy').textContent = 'Copiado!';
   setTimeout(() => { $('copy').textContent = 'Copiar'; }, 1500);
 });
-window.addEventListener('beforeunload', e => { if (host) e.preventDefault(); });
+window.addEventListener('beforeunload', e => { if (live?.role === 'host' || sharing) e.preventDefault(); });
 window.addEventListener('pagehide', () => {
-  if (host) navigator.sendBeacon('/api/stop', new Blob([JSON.stringify({ room: host.code, hostSecret: host.hostSecret })], { type: 'application/json' }));
+  if (live?.role === 'host') navigator.sendBeacon('/api/stop', new Blob([JSON.stringify({ room: live.code, hostSecret: live.session.hostSecret })], { type: 'application/json' }));
 });
 
 // ---------- Assistir ----------
-
-let viewer = null;
-const screenEl = $('screen');
-const audioEl = new Audio();
 
 async function watch(code) {
   const btn = $('join-form').querySelector('button');
@@ -200,67 +400,104 @@ async function watch(code) {
   try { localStorage.setItem('peekme-name', $('name').value); } catch {}
 
   const room = new Room({ adaptiveStream: true, dynacast: true });
-  viewer = room;
-  room
-    .on(RoomEvent.TrackSubscribed, track => {
-      if (track.kind === Track.Kind.Video) {
-        track.attach(screenEl);
-        $('waiting').hidden = true;
-        checkAudio(room);
-      } else if (track.kind === Track.Kind.Audio) {
-        track.attach(audioEl);
-        applyVolume();
-        $('no-audio').hidden = true;
-        // Alguns navegadores bloqueiam o som até um novo clique.
-        audioEl.play().catch(() => { $('unmute').hidden = false; });
-      }
-    })
-    .on(RoomEvent.AudioPlaybackStatusChanged, () => { $('unmute').hidden = room.canPlaybackAudio; })
-    .on(RoomEvent.TrackUnsubscribed, track => {
-      track.detach();
-      if (track.kind === Track.Kind.Video) { $('waiting').textContent = 'Aguardando a tela…'; $('waiting').hidden = false; }
-    })
-    .on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
-      if (!participant.isLocal) return;
-      $('quality').textContent = quality === ConnectionQuality.Poor ? 'Conexão fraca' : '';
-    })
-    .on(RoomEvent.Reconnecting, () => { $('waiting').textContent = 'Reconectando…'; $('waiting').hidden = false; })
-    .on(RoomEvent.Reconnected, () => { $('waiting').hidden = !!screenEl.srcObject; })
-    .on(RoomEvent.Disconnected, () => {
-      viewer = null;
-      ended('Transmissão encerrada', 'Quem estava transmitindo parou de compartilhar a tela.');
-    });
+  live = { room, role: 'viewer', code, session };
+  wireRoom(room);
+  room.on(RoomEvent.Disconnected, () => {
+    if (live?.room !== room) return;
+    live = null;
+    ended('Transmissão encerrada', 'Quem criou a sala parou de transmitir.');
+  });
 
-  show('watch');
+  $('view-live').classList.add('watch');
+  $('host-panel').hidden = true;
+  // No celular o navegador não compartilha a tela, então o botão nem aparece.
+  $('share').hidden = !(session.maxScreens > 1 && canCapture);
+  show('live');
+  render();
   try {
     await room.connect(livekitUrl(session.url), session.token, connectOptions(session));
     // O clique em "Assistir" libera o som no navegador.
     await room.startAudio();
   } catch (err) {
     console.error(err);
-    viewer = null;
+    live = null;
     ended('Não foi possível conectar', 'Verifique sua internet e abra o link de novo.');
     return;
   }
   btn.disabled = false;
+  setStatus('');
   document.title = 'Assistindo · PeekMe';
 }
 
-function hasAudio(participant) {
-  return !!(participant.getTrackPublication(Track.Source.ScreenShareAudio) || participant.getTrackPublication(Track.Source.Microphone));
+// Espera o servidor liberar a publicação (chega pela conexão com o LiveKit).
+function waitForPermission(room) {
+  return new Promise((resolve, reject) => {
+    const check = () => {
+      if (!room.localParticipant.permissions?.canPublish) return;
+      clearTimeout(timer);
+      room.off(RoomEvent.ParticipantPermissionsChanged, check);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      room.off(RoomEvent.ParticipantPermissionsChanged, check);
+      reject(new Error('O servidor demorou para liberar a transmissão. Tente de novo.'));
+    }, 8000);
+    room.on(RoomEvent.ParticipantPermissionsChanged, check);
+    check();
+  });
 }
 
-// Se em alguns segundos não chegar áudio, avisa que a transmissão está sem som.
-function checkAudio(room) {
-  setTimeout(() => {
-    $('no-audio').hidden = [...room.remoteParticipants.values()].some(hasAudio);
-  }, 3000);
+async function startSharing() {
+  const { room, code, session } = live;
+  const cred = { room: code, identity: session.identity, key: session.key };
+  let video;
+  try {
+    video = await publishScreen(room, {
+      beforePublish: async () => {
+        await api('/api/share', cred);
+        await waitForPermission(room);
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    api('/api/unshare', cred).catch(() => {});
+    toast(err.name === 'NotAllowedError' ? 'Você cancelou a escolha da tela.' : err.message || 'Não foi possível transmitir a sua tela.');
+    return;
+  }
+  sharing = true;
+  video.on('ended', () => { if (sharing) stopSharing(); });
+  if (!hasAudio(room.localParticipant)) {
+    toast('Sua tela está sem áudio. Para mandar o som, pare e escolha uma aba ou a tela inteira marcando "Compartilhar áudio".');
+  }
+  render();
 }
+
+async function stopSharing() {
+  if (!live || !sharing) return;
+  const { room, code, session } = live;
+  sharing = false;
+  await unpublishScreen(room);
+  await api('/api/unshare', { room: code, identity: session.identity, key: session.key }).catch(() => {});
+  render();
+}
+
+$('share').addEventListener('click', async () => {
+  if (live?.role !== 'viewer' || shareBusy) return;
+  shareBusy = true;
+  render();
+  try {
+    if (sharing) await stopSharing();
+    else await startSharing();
+  } finally {
+    shareBusy = false;
+    render();
+  }
+});
 
 $('unmute').addEventListener('click', async () => {
   try {
-    await viewer?.startAudio();
-    await audioEl.play();
+    await live?.room.startAudio();
+    await Promise.all([...tiles.values()].map(t => t.audio.srcObject && t.audio.play()));
     $('unmute').hidden = true;
   } catch (err) {
     console.error(err);
@@ -268,22 +505,27 @@ $('unmute').addEventListener('click', async () => {
 });
 
 function applyVolume() {
-  audioEl.volume = Number($('volume').value);
-  audioEl.muted = $('mute').dataset.muted === '1';
-  $('mute').textContent = audioEl.muted || audioEl.volume === 0 ? '🔇' : '🔊';
+  const volume = Number($('volume').value);
+  for (const t of tiles.values()) t.audio.volume = volume;
+  $('mute').textContent = $('mute').dataset.muted === '1' || volume === 0 ? '🔇' : '🔊';
+  render();
 }
 $('volume').addEventListener('input', () => { $('mute').dataset.muted = '0'; applyVolume(); });
 $('mute').addEventListener('click', () => { $('mute').dataset.muted = $('mute').dataset.muted === '1' ? '0' : '1'; applyVolume(); });
 $('fullscreen').addEventListener('click', () => {
-  const wrap = $('watch-wrap');
+  const stage = $('stage');
+  const video = tiles.get(focus)?.video || [...tiles.values()].find(t => t.hasVideo)?.video;
   if (document.fullscreenElement) document.exitFullscreen();
-  else if (wrap.requestFullscreen) wrap.requestFullscreen();
-  else if (screenEl.webkitEnterFullscreen) screenEl.webkitEnterFullscreen(); // iPhone
+  else if (stage.requestFullscreen) stage.requestFullscreen();
+  else if (video?.webkitEnterFullscreen) video.webkitEnterFullscreen(); // iPhone
 });
-screenEl.addEventListener('dblclick', () => $('fullscreen').click());
-// No celular, tocar no vídeo mostra os controles.
-$('watch-wrap').addEventListener('click', e => {
-  if (e.target === screenEl) $('watch-wrap').classList.toggle('show-controls');
+$('tiles').addEventListener('dblclick', () => $('fullscreen').click());
+// Na grade, clicar numa tela coloca ela em destaque. No celular, tocar no vídeo mostra os controles.
+$('tiles').addEventListener('click', e => {
+  const tile = e.target.closest('.tile');
+  if (!tile) return;
+  if ($('stage').classList.contains('grid')) setFocus(tile.dataset.id);
+  else $('stage').classList.toggle('show-controls');
 });
 
 // ---------- Início ----------
@@ -302,7 +544,7 @@ if (match) {
     $('start-error').textContent = 'Este navegador não consegue compartilhar a tela. Use Chrome, Edge ou Firefox no computador.';
     $('start-form').querySelector('button').disabled = true;
   }
-  if (/firefox/i.test(navigator.userAgent)) {
+  if (isFirefox) {
     $('start-error').textContent = 'No Firefox, o som vai por uma entrada de áudio: quando ele pedir o microfone, escolha "Monitor of …" (Linux) para enviar o som do computador.';
   }
   try { const saved = localStorage.getItem('peekme-quality'); if (QUALITIES[saved]) $('quality-select').value = saved; } catch {}
