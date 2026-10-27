@@ -5,6 +5,9 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+### Melhorias
+- Instalação com IA: prompt curto e roteiro detalhado em `docs/INSTALAR-COM-IA.md` (detecção de CGNAT, verificação de portas, segredos protegidos, teste final e modo de atualização).
+
 ## [1.0.0] - 2026-10-27
 
 Primeira versão pública.
