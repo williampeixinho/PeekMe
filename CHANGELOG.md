@@ -6,6 +6,7 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 ## [Não lançado]
 
 ### Melhorias
+- README: seção de requisitos no topo e resposta clara sobre instalar no Windows.
 - Instalação com IA: prompt curto e roteiro detalhado em `docs/INSTALAR-COM-IA.md` (detecção de CGNAT, verificação de portas, segredos protegidos, teste final e modo de atualização).
 
 ## [1.0.0] - 2026-10-27

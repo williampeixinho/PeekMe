@@ -7,9 +7,44 @@ Compartilhamento de tela simples e auto-hospedado, no estilo do "Go Live" do Dis
 - **Qualidade:** 720p ou 1080p a 60 fps, escolhida na hora de transmitir. Quem tem internet fraca recebe automaticamente uma versão menor.
 - **Áudio:** jogos e vídeos com som (veja [Navegadores e áudio](#navegadores-e-áudio)).
 - **Uma transmissão por vez.** Se já houver uma no ar, o site pergunta se você quer encerrá-la.
-- Roda inteiro em Docker, inclusive numa Raspberry Pi.
+- Roda inteiro em Docker num servidor Linux, inclusive numa Raspberry Pi. Transmitir e assistir funciona em qualquer sistema, inclusive Windows (veja os [Requisitos](#requisitos)).
 
 > Licença MIT. Use, modifique e compartilhe à vontade.
+
+---
+
+## Requisitos
+
+O PeekMe tem dois lados: o **servidor**, que fica ligado e repassa o vídeo, e os **navegadores** de quem transmite e de quem assiste.
+
+### Servidor (onde o PeekMe é instalado)
+
+| Item | Mínimo |
+|---|---|
+| Sistema | **Linux 64 bits** (Raspberry Pi OS 64-bit, Ubuntu, Debian etc.) |
+| Máquina | Raspberry Pi 4/5, mini PC, PC antigo ou VPS (`x86_64` ou `arm64`) |
+| Memória e disco | 1 GB de RAM livre e 3 GB de disco |
+| Software | Docker com Docker Compose v2 (o instalador com IA instala se faltar) |
+| Internet | **Upload** de ~3 Mbps por espectador em 720p ou ~5 Mbps em 1080p (5 pessoas: 15 a 25 Mbps) |
+| Domínio | Grátis ([DuckDNS](https://www.duckdns.org)) ou próprio. HTTPS é obrigatório para compartilhar tela |
+| Rede | Abrir 3 portas no roteador **ou**, sem isso (CGNAT, Starlink, 4G), uma conta grátis no Cloudflare |
+| Funcionamento | Ligado 24 h (ou pelo menos enquanto houver transmissão) |
+
+### Quem transmite e quem assiste
+
+- **Transmitir:** um computador com Chrome, Edge, Brave ou Firefox. Windows dá o melhor resultado (áudio do sistema inteiro). Veja [Navegadores e áudio](#navegadores-e-áudio).
+- **Assistir:** qualquer navegador moderno, no computador ou no celular. Não precisa instalar nada nem criar conta.
+
+### Dá para instalar no Windows?
+
+| Uso | Windows |
+|---|---|
+| **Transmitir e assistir** | ✅ Sim, é o melhor sistema para transmitir (áudio do sistema completo no Chrome/Edge) |
+| **Servidor** | ❌ Não é suportado. O vídeo usa a rede do host (`network_mode: host`), que não funciona direito no Docker Desktop do Windows nem do macOS |
+
+Se você só tem um PC com Windows, as opções são:
+- **Usar outra máquina como servidor:** uma Raspberry Pi, um PC velho com Linux ou um VPS (há opções grátis, como o Oracle Cloud Free Tier). Você continua transmitindo do Windows normalmente.
+- **WSL2 com rede espelhada (experimental, não testado):** no Windows 11 22H2 ou mais novo, o WSL2 com `networkingMode=mirrored` compartilha a rede do Windows. Instalar o Docker *dentro* do Ubuntu no WSL2 (não o Docker Desktop) e seguir a instalação como se fosse Linux pode funcionar, mas o PC precisa ficar ligado durante as transmissões. Se testar, conte como foi nas [Discussões](https://github.com/williampeixinho/PeekMe/discussions).
 
 ---
 
@@ -46,21 +81,20 @@ Prefere fazer à mão? Siga a [instalação manual](#instalação-manual-passo-a
 ## Sumário
 
 1. [Como funciona](#como-funciona)
-2. [O que você precisa](#o-que-você-precisa)
-3. [Escolha o seu cenário](#escolha-o-seu-cenário)
-4. [Instalação manual (passo a passo)](#instalação-manual-passo-a-passo)
+2. [Escolha o seu cenário](#escolha-o-seu-cenário)
+3. [Instalação manual (passo a passo)](#instalação-manual-passo-a-passo)
    - [Passo comum: Docker e o projeto](#passo-comum-docker-e-o-projeto)
    - [Cenário A: com porta aberta no roteador](#cenário-a-com-porta-aberta-no-roteador)
    - [Cenário B: sem porta aberta (CGNAT, Starlink, 4G)](#cenário-b-sem-porta-aberta-cgnat-starlink-4g)
    - [Cenário C: num servidor na nuvem (VPS)](#cenário-c-num-servidor-na-nuvem-vps)
-5. [Todas as configurações do .env](#todas-as-configurações-do-env)
-6. [Navegadores e áudio](#navegadores-e-áudio)
-7. [Uso no dia a dia](#uso-no-dia-a-dia)
-8. [Atualizar](#atualizar)
-9. [Problemas comuns](#problemas-comuns)
-10. [Segurança](#segurança)
-11. [Desenvolvimento](#desenvolvimento)
-12. [Comentários, sugestões e contribuições](#comentários-sugestões-e-contribuições)
+4. [Todas as configurações do .env](#todas-as-configurações-do-env)
+5. [Navegadores e áudio](#navegadores-e-áudio)
+6. [Uso no dia a dia](#uso-no-dia-a-dia)
+7. [Atualizar](#atualizar)
+8. [Problemas comuns](#problemas-comuns)
+9. [Segurança](#segurança)
+10. [Desenvolvimento](#desenvolvimento)
+11. [Comentários, sugestões e contribuições](#comentários-sugestões-e-contribuições)
 
 ---
 
@@ -87,20 +121,6 @@ Prefere fazer à mão? Siga a [instalação manual](#instalação-manual-passo-a
 | `cloudflared` | Opcional: Cloudflare Tunnel, para publicar o site sem abrir portas |
 
 Importante: o **site** (páginas e sinalização) e o **vídeo** são caminhos diferentes. O site pode passar por um proxy ou túnel, mas o vídeo vai direto entre o navegador e o LiveKit (ou por um servidor TURN quando a conexão direta não é possível).
-
----
-
-## O que você precisa
-
-- **Uma máquina Linux ligada 24h** com Docker: Raspberry Pi 4/5 (64 bits), um PC velho, um mini PC ou um VPS. Funciona em `amd64` e `arm64`. 1 GB de RAM livre é suficiente.
-- **Upload de internet suficiente.** Cada espectador consome do *seu upload*:
-
-  | Qualidade | Por espectador | 5 espectadores |
-  |---|---|---|
-  | 720p 60 fps | ~3 Mbps | ~15 Mbps |
-  | 1080p 60 fps | ~5 Mbps | ~25 Mbps |
-
-- **Um domínio.** Pode ser grátis ([DuckDNS](https://www.duckdns.org)) ou um seu (no Cloudflare, por exemplo). HTTPS é obrigatório: navegadores só deixam compartilhar a tela em sites seguros.
 
 ---
 
@@ -304,7 +324,7 @@ Dicas:
 ## Uso no dia a dia
 
 - **Trocar a senha:** edite `HOST_PASSWORD` no `.env` e rode `docker compose up -d`.
-- **Mais ou menos espectadores:** mude `MAX_VIEWERS`. Faça a conta com o seu upload (tabela em [O que você precisa](#o-que-você-precisa)).
+- **Mais ou menos espectadores:** mude `MAX_VIEWERS`. Faça a conta com o seu upload (tabela em [Requisitos](#requisitos)).
 - **Encerrar:** clique em Parar no site. Se a aba for fechada, a sala some sozinha em cerca de um minuto.
 - **Parar o servidor:** `docker compose down`. Para ligar de novo: `docker compose up -d` (no cenário B, liste os serviços como no passo B4).
 

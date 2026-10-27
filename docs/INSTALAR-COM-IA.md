@@ -44,7 +44,8 @@ docker --version; docker compose version
 
 | Situação | O que fazer |
 |---|---|
-| Não é Linux (macOS, Windows, WSL) | Explique que o PeekMe precisa de um servidor Linux ligado 24 h (Raspberry Pi, PC com Linux ou VPS) porque o vídeo usa a rede do host, que não funciona bem no Docker Desktop. Pare aqui. |
+| macOS ou Windows (fora do WSL) | Explique que o servidor do PeekMe precisa de Linux ligado 24 h (Raspberry Pi, PC com Linux ou VPS) porque o vídeo usa a rede do host, que não funciona bem no Docker Desktop. Transmitir do Windows/macOS continua funcionando. Pare aqui. |
+| WSL2 no Windows (`uname -r` contém `microsoft`) | Rode `wslinfo --networking-mode`. Se não for `mirrored`, explique como ativar (arquivo `%UserProfile%\.wslconfig` com `[wsl2]` e `networkingMode=mirrored`, depois `wsl --shutdown`) e pare. Se for `mirrored`, avise que é **experimental e não testado**, que o PC precisa ficar ligado nas transmissões e que o Docker deve ser o do Linux dentro do WSL (não o Docker Desktop). Siga só se a pessoa concordar. |
 | Arquitetura diferente de `x86_64`/`aarch64` (ex.: `armv7l`, Pi com sistema 32 bits) | Explique que precisa de um sistema 64 bits (Raspberry Pi OS 64-bit). Pare aqui. |
 | Menos de 1 GB de RAM livre ou 3 GB de disco | Avise do risco e pergunte se quer seguir. |
 | Docker ausente | Peça permissão e instale: `curl -fsSL https://get.docker.com \| sh` e `sudo usermod -aG docker $USER`. Depois disso, use `sudo docker ...` nesta sessão (o grupo só vale num novo login) e avise que no próximo login não precisa mais de `sudo`. |
