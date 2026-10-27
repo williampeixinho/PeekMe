@@ -202,7 +202,8 @@ function render() {
   if (!picked) focus = list.length === 1 ? list[0].identity : null;
   const grid = focus === null;
   $('stage').classList.toggle('grid', grid && list.length > 1);
-  $('tiles').style.setProperty('--cols', Math.ceil(Math.sqrt(list.length)) || 1);
+  // Com uma tela em destaque, ela ocupa a coluna toda.
+  $('tiles').style.setProperty('--cols', grid ? Math.ceil(Math.sqrt(list.length)) || 1 : 1);
 
   const muted = $('mute').dataset.muted === '1';
   for (const t of tiles.values()) {
