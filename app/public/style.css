@@ -25,7 +25,7 @@ body {
 .brand { display: flex; align-items: center; gap: 8px; color: var(--text); text-decoration: none; font-weight: 700; font-size: 18px; }
 .badge { background: var(--danger); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 2px 8px; border-radius: 4px; }
 
-.center { flex: 1; display: grid; place-items: center; padding: 24px 16px; }
+.center { flex: 1; display: grid; place-items: center; align-content: center; gap: 16px; padding: 24px 16px; }
 .card { background: var(--surface); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 400px; }
 .card h1 { margin: 0 0 6px; font-size: 22px; }
 .muted { color: var(--muted); }
@@ -49,6 +49,10 @@ button:disabled { opacity: .6; cursor: wait; }
 .danger { background: var(--danger); color: #fff; }
 .error { color: #ff8a8d; min-height: 1.5em; margin: 0; font-size: 14px; }
 .card .button { display: inline-block; margin-top: 12px; }
+.about h2 { margin: 0 0 8px; font-size: 17px; }
+.about p, .about ul { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+.about ul { padding-left: 20px; margin-bottom: 0; }
+.about a { color: #a99ff5; }
 
 .stage { flex: 1; display: grid; grid-template-columns: 1fr 300px; grid-template-rows: minmax(0, 1fr); gap: 16px; padding: 16px; min-height: 0; }
 .stage.watch { grid-template-columns: 1fr; padding: 0; }
