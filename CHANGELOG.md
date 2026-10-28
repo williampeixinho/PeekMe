@@ -5,6 +5,9 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+### Melhorias
+- Página inicial com uma mensagem de boas-vindas explicando o projeto, que ele é open source e o link para o GitHub.
+
 ## [1.1.0] - 2026-10-27
 
 ### Recursos
