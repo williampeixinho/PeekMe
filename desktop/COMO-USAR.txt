@@ -1,0 +1,18 @@
+PeekMe para Windows — versão de teste 0.1.0
+
+1. Mantenha esta pasta inteira junta. Abra PeekMe.exe.
+2. Deixe aberta a janela do jogo ou aplicativo que deseja transmitir.
+3. Clique em Atualizar aplicativos e selecione a janela.
+4. Mantenha marcada a opção de compartilhar somente o áudio deste aplicativo.
+5. Use Conferir prévia para conferir a imagem. O medidor indica áudio recebido; a prévia fica muda para evitar retorno local.
+6. Digite sua senha de transmissão do PeekMe e clique em Transmitir.
+7. Compartilhe o link gerado. Seus amigos assistem pelo navegador normalmente.
+
+A captura inclui o processo escolhido e seus processos filhos. Discord aberto separadamente fica fora da captura. O microfone não é capturado.
+Se duas janelas pertencem ao mesmo processo, o áudio pode incluir ambas. Em navegadores e programas com vários processos, o resultado depende de onde o aplicativo reproduz o som. Escolha o jogo/aplicativo diretamente, evite selecionar um launcher.
+Se o aplicativo não aparecer, restaure a janela e atualize a lista. Conteúdo protegido pode não permitir captura.
+Requisitos: Windows 11 x64 (ou Windows build 20348 ou posterior).
+Servidor: https://peekme.devpeixinho.uk
+A senha não é salva pelo aplicativo.
+
+Verificação realizada: captura nativa recebeu um tom do processo escolhido e excluiu um segundo processo tocando outro tom. A prévia integrada exibiu a janela sintética e recebeu seu áudio. Ainda falta validar uma transmissão completa deste executável com um espectador remoto e o seu jogo/Discord reais.

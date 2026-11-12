@@ -1,0 +1,14 @@
+{
+  "name": "peekme-desktop",
+  "productName": "PeekMe para Windows",
+  "version": "0.1.0",
+  "description": "PeekMe portátil com áudio isolado do aplicativo selecionado.",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": { "start": "electron ." },
+  "dependencies": {
+    "livekit-client": "2.23.0",
+    "loopback-capture": "4.0.0"
+  },
+  "devDependencies": { "electron": "45.2.1" }
+}

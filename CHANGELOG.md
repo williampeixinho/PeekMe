@@ -5,6 +5,10 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+### Recursos
+- **PeekMe para Windows** (`desktop/`, versão de teste 0.1.0): transmite a janela de um aplicativo ou jogo com o áudio só dele, sem pegar o Discord nem o microfone. Lista também janelas minimizadas e de apps abertos como administrador.
+- `scripts/ip-watch.sh`: reinicia o LiveKit quando o IP público muda (comum em Starlink e CGNAT) e não há ninguém conectado. Sem isso, quem está fora de casa deixa de conectar até reiniciar o LiveKit.
+
 ### Melhorias
 - Página inicial com uma mensagem de boas-vindas explicando o projeto, que ele é open source e o link para o GitHub.
 

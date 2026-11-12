@@ -1,0 +1,7 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>PeekMe — aplicativo sintético de teste</title>
+<body style="background:#17365b;color:white;font:22px sans-serif;padding:20px">
+<h1>Imagem sintética de teste</h1><p id="clock"></p><button id="tone">Tocar som de teste baixo</button>
+<script>
+setInterval(()=>{document.querySelector('#clock').textContent=new Date().toLocaleTimeString();document.body.style.background=Date.now()%2000<1000?'#17365b':'#254b70';},100);
+document.querySelector('#tone').onclick=()=>{const context=new AudioContext();const oscillator=context.createOscillator(),gain=context.createGain();oscillator.frequency.value=500;gain.gain.value=.002;oscillator.connect(gain);gain.connect(context.destination);oscillator.start();document.querySelector('#tone').textContent='Som de teste tocando';};
+</script></body></html>

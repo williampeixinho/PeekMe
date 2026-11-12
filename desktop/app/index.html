@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self' https://peekme.devpeixinho.uk wss://peekme.devpeixinho.uk">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PeekMe</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/"><img src="/icon.svg" alt="" width="28" height="28"> PeekMe</a>
+    <span id="live-badge" class="badge" hidden>AO VIVO</span>
+  </header>
+
+  <!-- Quem transmite: senha -->
+  <main id="view-home" class="center" hidden>
+    <section class="card">
+      <h1>Transmitir um aplicativo</h1>
+      <p class="muted">Escolha o aplicativo. A imagem e o áudio dele vão para a transmissão; o Discord continua separado.</p>
+      <form id="start-form">
+        <label for="password">Senha de transmissão</label>
+        <input id="password" type="password" autocomplete="current-password" required>
+        <label for="application">Aplicativo</label>
+        <select id="application"><option value="">Carregando aplicativos…</option></select>
+        <button id="refresh-apps" type="button">Atualizar aplicativos</button>
+        <label for="quality-select">Qualidade</label>
+        <select id="quality-select">
+          <option value="720" selected>720p · 60 fps (mais leve)</option>
+          <option value="1080">1080p · 60 fps (mais nítido, usa mais internet)</option>
+        </select>
+        <label class="check"><input id="audio" type="checkbox" checked> Compartilhar somente o áudio deste aplicativo</label>
+        <p class="muted small">Abra a janela do aplicativo e atualize a lista. Somente o áudio dele será capturado.</p>
+        <button id="preview-start" type="button">Conferir prévia</button>
+        <section id="preview" hidden><video id="preview-video" autoplay muted playsinline style="width:100%;max-height:220px"></video><label for="audio-meter">Áudio do aplicativo</label><meter id="audio-meter" min="0" max="1" value="0" style="width:100%"></meter><p id="preview-status" class="muted small"></p><button id="preview-stop" type="button">Fechar prévia</button></section>
+        <button class="primary" type="submit">Transmitir</button>
+        <p id="start-error" class="error" role="alert"></p>
+      </form>
+    </section>
+    <section class="card about">
+      <h2>👋 Bem-vindo ao PeekMe</h2>
+      <p>O PeekMe nasceu depois que o Discord suspendeu o Go Live e o compartilhamento de tela no Brasil, por ordem da ANPD com base no ECA Digital. A ideia é simples: mostrar sua tela para os amigos, com áudio, do jeito que era no Discord.</p>
+      <ul>
+        <li>Sem conta e sem instalar nada: quem recebe o link assiste pelo navegador.</li>
+        <li>Roda no seu próprio servidor, até num Raspberry Pi.</li>
+        <li>Gratuito e open source. O código está no <a href="https://github.com/williampeixinho/PeekMe" target="_blank" rel="noopener">GitHub</a>.</li>
+      </ul>
+    </section>
+  </main>
+
+  <!-- Ao vivo: quem criou a sala e quem assiste usam a mesma tela -->
+  <main id="view-live" class="stage" hidden>
+    <div class="video-wrap" id="stage">
+      <nav id="tabs" class="tabs" aria-label="Escolher tela" hidden></nav>
+      <div id="tiles" class="tiles"></div>
+      <div id="waiting" class="overlay">Conectando…</div>
+      <button id="unmute" class="unmute primary" type="button" hidden>🔊 Clique para ativar o som</button>
+      <p id="toast" class="toast" role="status" hidden></p>
+      <div class="controls">
+        <button id="mute" type="button" title="Som">🔊</button>
+        <input id="volume" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume">
+        <span class="spacer"></span>
+        <span id="no-audio" class="small" hidden>Tela sem áudio</span>
+        <span id="quality" class="small"></span>
+        <button id="share" class="share" type="button" hidden>🖥️ Transmitir minha tela</button>
+        <button id="fullscreen" type="button" title="Tela cheia">⛶</button>
+      </div>
+    </div>
+    <aside class="panel" id="host-panel">
+      <h2>Você está ao vivo</h2>
+      <label for="share-link">Link para assistir</label>
+      <div class="row">
+        <input id="share-link" readonly>
+        <button id="copy" type="button">Copiar</button>
+      </div>
+      <p class="muted"><strong id="viewer-count">0</strong> de <span id="viewer-max">5</span> assistindo</p>
+      <ul id="viewer-list" class="viewers"></ul>
+      <p id="host-audio" class="warn small" hidden>O aplicativo está sem áudio. Confira se ele está reproduzindo som e se a captura de áudio está marcada.</p>
+      <p id="host-status" class="muted small"></p>
+      <button id="stop" class="danger" type="button">Parar transmissão</button>
+    </aside>
+  </main>
+
+  <!-- Quem assiste -->
+  <main id="view-join" class="center" hidden>
+    <section class="card">
+      <h1>Assistir transmissão</h1>
+      <p class="muted">Alguém está compartilhando a tela com você.</p>
+      <form id="join-form">
+        <label for="name">Seu nome (opcional)</label>
+        <input id="name" maxlength="24" autocomplete="nickname">
+        <button class="primary" type="submit">Assistir</button>
+        <p id="join-error" class="error" role="alert"></p>
+      </form>
+    </section>
+  </main>
+
+  <main id="view-ended" class="center" hidden>
+    <section class="card">
+      <h1 id="ended-title">Transmissão encerrada</h1>
+      <p id="ended-text" class="muted">Quem estava transmitindo parou de compartilhar a tela.</p>
+      <a class="button" href="/">Voltar ao início</a>
+    </section>
+  </main>
+
+  <script src="/vendor/livekit-client.js"></script>
+  <script src="/desktop.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
