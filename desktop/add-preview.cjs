@@ -1,0 +1,11 @@
+const fs=require('node:fs'),path=require('node:path');
+const root=path.join(__dirname,'app');
+let html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+html=html.replace('<button class="primary" type="submit">Transmitir</button>','<p class="muted small">Abra a janela do aplicativo e atualize a lista. Somente o áudio dele será capturado.</p>\n        <button id="preview-start" type="button">Conferir prévia</button>\n        <section id="preview" hidden><video id="preview-video" autoplay muted playsinline style="width:100%;max-height:220px"></video><label for="audio-meter">Áudio do aplicativo</label><meter id="audio-meter" min="0" max="1" value="0" style="width:100%"></meter><p id="preview-status" class="muted small"></p><button id="preview-stop" type="button">Fechar prévia</button></section>\n        <button class="primary" type="submit">Transmitir</button>');
+fs.writeFileSync(path.join(root,'index.html'),html);
+let js=fs.readFileSync(path.join(root,'app.js'),'utf8');
+js=js.replace("async function startStream(force = false) {", "async function startStream(force = false) {\n  await stopPreview();");
+fs.writeFileSync(path.join(root,'app.js'),js);
+const dest=path.join(__dirname,'PeekMe-Windows','resources','app');
+for(const name of['main.cjs','fixture.html','app'])fs.cpSync(path.join(__dirname,name),path.join(dest,name),{recursive:true});
+console.log('Prévia local adicionada.');

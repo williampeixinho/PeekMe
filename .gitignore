@@ -7,3 +7,9 @@ docker-compose.override.yml
 *.local.*
 
 node_modules/
+
+# App para Windows: build portátil e testes
+desktop/PeekMe-Windows/
+desktop/audio-test-*/
+ip-watch.log
+*.bak*
