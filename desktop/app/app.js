@@ -41,10 +41,20 @@ function ended(title, text) {
 // com 5 espectadores, 720p usa ~15 Mbps e 1080p ~25 Mbps.
 // As camadas menores servem quem tem internet fraca.
 const QUALITIES = {
+  '720-30': {
+    resolution: { width: 1280, height: 720, frameRate: 30 },
+    encoding: { maxBitrate: 2_000_000, maxFramerate: 30 },
+    layers: [new VideoPreset(640, 360, 350_000, 15)],
+  },
   '720': {
     resolution: { width: 1280, height: 720, frameRate: 60 },
     encoding: { maxBitrate: 3_000_000, maxFramerate: 60 },
     layers: [new VideoPreset(640, 360, 600_000, 30)],
+  },
+  '1080-30': {
+    resolution: { width: 1920, height: 1080, frameRate: 30 },
+    encoding: { maxBitrate: 3_000_000, maxFramerate: 30 },
+    layers: [new VideoPreset(640, 360, 350_000, 15), new VideoPreset(1280, 720, 1_500_000, 30)],
   },
   '1080': {
     resolution: { width: 1920, height: 1080, frameRate: 60 },
@@ -59,7 +69,9 @@ const SCREEN_CAPTURE = {
   systemAudio: 'include',
 };
 const SCREEN_PUBLISH = {
-  videoCodec: 'vp8',
+  // No Windows, H.264 permite usar o codificador de vídeo da GPU.
+  // Mantém VP8 quando o runtime não anuncia suporte a H.264.
+  videoCodec: typeof RTCRtpSender !== 'undefined' && RTCRtpSender.getCapabilities('video')?.codecs.some(codec => codec.mimeType.toLowerCase() === 'video/h264') ? 'h264' : 'vp8',
   simulcast: true,
   degradationPreference: 'maintain-framerate',
   audioPreset: AudioPresets.musicHighQualityStereo,

@@ -16,6 +16,22 @@ A pasta `desktop/PeekMe-Windows/` sai pronta para usar (cerca de 357 MB). O `Pee
 
 Para testar sem gerar a pasta: `npm start`.
 
+## Fluidez da transmissão
+
+Em Qualidade, escolha 720p ou 1080p a **30 ou 60 fps**. Os modos de 30 fps usam menos processamento e menos internet. A escolha fica salva para a próxima transmissão.
+
+O app continua ativo quando fica coberto pelo jogo ou minimizado. A captura fica limitada à resolução e aos FPS da qualidade escolhida e prioriza movimento. O envio prefere H.264 quando o runtime oferece esse formato, permitindo usar o codificador da GPU; sem suporte, usa VP8. A aceleração depende da placa e do driver.
+
+Para medir a captura e o envio com uma janela de animação, sem conectar ao servidor nem capturar o jogo ou o áudio:
+
+```powershell
+.\node_modules\.bin\electron.cmd test-video-performance.cjs
+# Para medir 720p a 30 fps:
+.\node_modules\.bin\electron.cmd test-video-performance.cjs . 720-30
+```
+
+O teste usa um perfil temporário e dois participantes WebRTC locais. Mostra os FPS enviados, a resolução e o codificador da faixa principal com a janela coberta e minimizada. Não testa as camadas adaptativas do servidor nem a rede externa. O resultado depende do computador; teste a transmissão do jogo para confirmar a experiência real. O teste não altera o perfil normal do PeekMe.
+
 ## Arquivos
 
 | Arquivo | O que faz |

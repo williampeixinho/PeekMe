@@ -136,7 +136,8 @@ app.whenReady().then(async()=>{
     if(!filename)return new Response('Não encontrado',{status:404});
     return net.fetch(pathToFileURL(filename).href);
   });
-  win=new BrowserWindow({width:1050,height:780,minWidth:700,minHeight:620,title:'PeekMe para Windows',autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  // A transmissão continua em tempo real quando o jogo cobre ou minimiza o PeekMe.
+  win=new BrowserWindow({width:1050,height:780,minWidth:700,minHeight:620,title:'PeekMe para Windows',autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:false}});
   win.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   win.webContents.on('will-navigate',(event,url)=>{if(!isLocal(url))event.preventDefault();});
   win.webContents.on('render-process-gone',()=>stopAudio());

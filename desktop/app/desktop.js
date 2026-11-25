@@ -44,8 +44,15 @@ async function createDesktopTracks(q,audio){
   const id=document.getElementById('application').value;
   if(!id)throw Error('Escolha um aplicativo na lista.');
   await window.peekmeDesktop.selectApplication(id);
-  const stream=await navigator.mediaDevices.getDisplayMedia({video:{width:q.resolution.width,height:q.resolution.height,frameRate:q.resolution.frameRate},audio:false});
-  const tracks=[new LivekitClient.LocalVideoTrack(stream.getVideoTracks()[0],undefined,false)];
+  // Limita o trabalho da captura à qualidade escolhida, mesmo em monitores maiores.
+  const stream=await navigator.mediaDevices.getDisplayMedia({video:{
+    width:{ideal:q.resolution.width,max:q.resolution.width},
+    height:{ideal:q.resolution.height,max:q.resolution.height},
+    frameRate:{ideal:q.resolution.frameRate,max:q.resolution.frameRate},
+  },audio:false});
+  const videoTrack=stream.getVideoTracks()[0];
+  videoTrack.contentHint='motion';
+  const tracks=[new LivekitClient.LocalVideoTrack(videoTrack,undefined,false)];
   tracks[0].source=LivekitClient.Track.Source.ScreenShare;
   if(audio){
     let context;
